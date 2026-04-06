@@ -1,5 +1,15 @@
 # Booru Browser
 
+> **A Quick Note from the Author**
+> 
+> Hello! Before anything else, I want to be completely transparent: I am a hobbyist, and my programming knowledge is quite limited. This entire tool was written with the heavy assistance of AI.
+> 
+> I sincerely apologize for any vulnerabilities, structural inconsistencies, or amateur mistakes that an experienced eye will undoubtedly catch. I did my absolute best to debug, test, and study the code within the limits of my abilities. 
+> 
+> I originally created this browser strictly for my personal workflow. I am sharing it with the community purely out of goodwill, hoping it might be genuinely useful to someone else. Because of my lack of technical expertise, I cannot take responsibility for maintaining, updating, or providing ongoing support for this project. 
+> 
+> If you have the skills and the desire to fork this project, integrate it into environments like ForgeUI or ComfyUI, or simply rewrite it into proper piece of code — please go ahead! I wholeheartedly encourage you to take this foundation and evolve it. I would be absolutely thrilled to see it grow in the hands of someone who knows what and how to do it.
+
 A local browser tool for exploring artists on Danbooru, Gelbooru or e621 — with image previews, hover cards, favorites, prompt mixing, sorting, and global search.
 
 ![Artists Database](assets/1.png)
