@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booru Character Browser</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+          --bg:#0e0e10; --bg2:#17171a; --bg3:#1f1f24; --bg4:#27272d;
+          --line:rgba(255,255,255,0.07); --line2:rgba(255,255,255,0.13);
+          --text:#f0f0f0; --text2:#888; --text3:#555;
+          --accent:#e028cc; --danger:#ff5f5f;
+          --danger-bg:#2a1212; --ok-bg:#1f061b;
+          --radius:12px; --radius-lg:20px;
+        }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;position:relative;isolation:isolate}
+        body::before{content:'';position:fixed;inset:0;z-index:-2;background:
+          radial-gradient(ellipse 60% 50% at 15% 20%,rgba(224,40,204,.055) 0%,transparent 70%),
+          radial-gradient(ellipse 50% 60% at 85% 75%,rgba(100,180,255,.04) 0%,transparent 70%),
+          radial-gradient(ellipse 40% 40% at 50% 50%,rgba(224,40,204,.02) 0%,transparent 60%);
+          pointer-events:none}
+        body::after{content:'';position:fixed;inset:0;z-index:-1;
+          background-image:radial-gradient(circle,rgba(255,255,255,.09) 1px,transparent 1px);
+          background-size:28px 28px;
+          mask-image:radial-gradient(ellipse 100% 100% at 50% 0%,black 30%,transparent 100%);
+          pointer-events:none}
+
+        #wrap{max-width:1440px;margin:0 auto;padding:3rem 2rem 5rem}
+
+        /* Header */
+        .header{display:flex;align-items:center;gap:20px;margin-bottom:2rem;flex-wrap:wrap}
+        .header h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
+        .header h1 .slash{color:var(--accent);opacity:.5}
+
+        .app-switch { display: flex; gap: 4px; background: var(--bg3); padding: 4px; border-radius: 10px; border: 1px solid var(--line2); margin-left: 16px; margin-right: auto;}
+        .app-switch a { padding: 5px 14px; border-radius: 8px; font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text2); text-decoration: none; transition: all .15s; }
+        .app-switch a.active { background: var(--accent); color: #ffffff; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+        .app-switch a:not(.active):hover { color: var(--text); background: var(--bg4); }
+
+        .source-tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+        .source-tab{padding:7px 16px;border:1px solid var(--line2);border-radius:var(--radius);
+          background:var(--bg2);color:var(--text2);cursor:pointer;
+          font-family:'DM Mono',monospace;font-size:13px;transition:all .15s}
+        .source-tab:hover{background:var(--bg3);color:var(--text)}
+        .source-tab.active{background:var(--accent);color:#ffffff;border-color:var(--accent);font-weight:600;text-shadow: 0 1px 2px rgba(0,0,0,0.3);}
+
+        /* Banners */
+        .proxy-banner{font-family:'DM Mono',monospace;font-size:13px;padding:12px 18px;
+          border-radius:var(--radius);margin-bottom:1.5rem;border:1px solid;line-height:1.5}
+        .proxy-ok{background:var(--ok-bg);color:var(--accent);border-color:rgba(224,40,204,.2)}
+        .proxy-err{background:var(--danger-bg);color:var(--danger);border-color:rgba(255,95,95,.2)}
+
+        /* Letter grid */
+        .letter-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.5rem}
+        .letter-btn{position:relative;width:44px;height:44px;border:1px solid var(--line2);
+          background:var(--bg2);border-radius:var(--radius);cursor:pointer;font-size:14px;
+          font-weight:600;font-family:'Syne',sans-serif;color:var(--text2);
+          display:flex;align-items:center;justify-content:center;flex-direction:column;
+          transition:all .15s;gap:2px}
+        .letter-btn:hover{background:var(--bg3);color:var(--text)}
+        .letter-btn.active{background:var(--accent);color:#0e0e10;border-color:var(--accent);font-weight:700}
+        .letter-btn.active .lbadge{color:#0e0e10;opacity:.6}
+        .lbadge{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);line-height:1}
+
+        /* Global search row */
+        .gsearch-row{display:flex;gap:8px;margin-bottom:1.25rem;align-items:center}
+        .gsearch-wrap{position:relative;flex:1}
+        .gsearch-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.35;pointer-events:none}
+        .gsearch-input{width:100%;padding:10px 16px 10px 42px;border:1px solid var(--line2);
+          border-radius:var(--radius);background:var(--bg2);color:var(--text);
+          font-family:'DM Mono',monospace;font-size:14px;outline:none;transition:border-color .15s}
+        .gsearch-input::placeholder{color:var(--text3)}
+        .gsearch-input:focus{border-color:var(--accent)}
+        .gsearch-results{background:var(--bg2);border:1px solid var(--line2);border-radius:var(--radius);
+          position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:200;
+          max-height:300px;overflow-y:auto;display:none}
+        .gsearch-results.open{display:block}
+        .gsearch-item{padding:10px 16px;cursor:pointer;font-family:'DM Mono',monospace;
+          font-size:13px;display:flex;justify-content:space-between;align-items:center;
+          border-bottom:1px solid var(--line)}
+        .gsearch-item:last-child{border-bottom:none}
+        .gsearch-item:hover{background:var(--bg3)}
+        .gsearch-item .gi-count{color:var(--accent);font-size:12px}
+
+        /* Progress */
+        .prog-bar{height:2px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:.8rem}
+        .prog-fill{height:100%;background:var(--accent);width:0%;transition:width .4s}
+        .status{font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);min-height:18px;margin-bottom:1rem}
+
+        /* Controls */
+        .controls{display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
+        .search-input{flex:1;min-width:200px;padding:9px 14px;border:1px solid var(--line2);
+          border-radius:var(--radius);background:var(--bg2);color:var(--text);
+          font-family:'DM Mono',monospace;font-size:13px;outline:none;transition:border-color .15s}
+        .search-input::placeholder{color:var(--text3)}
+        .search-input:focus{border-color:var(--accent)}
+        .toggle-wrap{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);
+          white-space:nowrap;cursor:pointer;user-select:none}
+        .toggle-wrap input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px}
+        .sort-select{padding:8px 12px;border:1px solid var(--line2);border-radius:var(--radius);
+          background:var(--bg2);color:var(--text2);font-family:'DM Mono',monospace;
+          font-size:13px;outline:none;cursor:pointer;max-width:180px;}
+        .sort-select:focus{border-color:var(--accent);color:var(--text)}
+
+        /* Stat bar */
+        .stat-bar{display:flex;align-items:center;justify-content:space-between;
+          margin-bottom:1rem;flex-wrap:wrap;gap:10px}
+        .stat-bar-left{display:flex;align-items:center;gap:16px}
+        #stats{font-family:'DM Mono',monospace;font-size:13px;color:var(--text2)}
+        #imgprog{font-family:'DM Mono',monospace;font-size:13px;color:var(--accent)}
+        .btn{padding:7px 16px;border:1px solid var(--line2);border-radius:var(--radius);
+          background:var(--bg2);color:var(--text2);cursor:pointer;font-family:'DM Mono',monospace;
+          font-size:13px;transition:all .15s; display:flex; align-items:center; justify-content:center; gap:8px;}
+        .btn:hover{background:var(--bg3);color:var(--text)}
+
+        /* Favs tab */
+        .favs-toggle{display:flex;align-items:center;gap:8px;padding:7px 16px;
+          border:1px solid var(--line2);border-radius:var(--radius);background:var(--bg2);
+          color:var(--text2);cursor:pointer;font-family:'DM Mono',monospace;font-size:13px;
+          transition:all .15s;user-select:none}
+        .favs-toggle:hover{background:var(--bg3);color:var(--text)}
+        .favs-toggle.on{background:rgba(224,40,204,.12);color:var(--accent);border-color:rgba(224,40,204,.3)}
+        .favs-toggle svg{flex-shrink:0; width:15px; height:15px;}
+
+        /* Grid */
+        .artist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+          gap:14px;margin-bottom:1.5rem}
+        .artist-card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius-lg);
+          overflow:hidden;transition:border-color .15s,transform .15s;position:relative}
+        .artist-card:hover{border-color:rgba(224,40,204,.25);transform:translateY(-3px);
+          box-shadow:0 12px 40px rgba(0,0,0,.4),0 0 0 1px rgba(224,40,204,.08)}
+        .artist-card a{text-decoration:none;color:inherit;display:block;overflow:hidden;
+          border-radius:var(--radius-lg)}
+        .card-body a { overflow: visible; border-radius: 0; }
+        .card-thumb{width:100%;aspect-ratio:1;background:var(--bg3);overflow:hidden;position:relative;
+          border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+        .card-thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .4s}
+        .card-thumb img.loaded{opacity:1}
+        .card-thumb .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg3)}
+        .card-thumb .ph svg{opacity:.15; width:40px; height:40px;}
+        .card-rank{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);
+          color:var(--text2);font-family:'DM Mono',monospace;font-size:11px;padding:4px 8px;
+          border-radius:6px;line-height:1.4;pointer-events:none;z-index:2}
+        .card-body{padding:12px 14px 14px}
+        .card-name-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+        .card-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;
+          text-overflow:ellipsis;font-family:'DM Mono',monospace;flex:1;min-width:0}
+        .card-count{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);}
+        .card-count span{color:var(--text3)}
+        .src-badge{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);
+          border:1px solid var(--line2);padding:2px 6px;border-radius:6px;margin-top:6px;display:inline-block;text-transform:uppercase;}
+
+        /* Card Folder Select */
+        .card-folder-sel {
+          position: absolute;
+          bottom: 12px;
+          right: 12px;
+          z-index: 3;
+          background: var(--bg3);
+          color: var(--text2);
+          border: 1px solid var(--line2);
+          border-radius: 6px;
+          font-family: 'DM Mono', monospace;
+          font-size: 10px;
+          padding: 3px 6px;
+          outline: none;
+          cursor: pointer;
+          max-width: 100px;
+          transition: all .15s;
+        }
+        .card-folder-sel:hover, .card-folder-sel:focus { color: var(--text); border-color: var(--accent); }
+
+        /* Copy btn */
+        .copy-btn{flex-shrink:0;width:20px;height:20px;opacity:0;border:none;background:none;
+          cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;
+          color:var(--text3);transition:opacity .15s,color .15s;border-radius:4px}
+        .artist-card:hover .copy-btn{opacity:1}
+        .copy-btn:hover{color:var(--accent)}
+        .copy-btn.copied{color:var(--accent);opacity:1}
+        @media (hover:none){
+          .copy-btn{opacity:1;width:24px;height:24px;color:var(--text2)}
+        }
+
+        /* Star btn */
+        .star-btn{position:absolute;top:10px;right:10px;z-index:3;width:28px;height:28px;
+          background:rgba(0,0,0,.55);backdrop-filter:blur(6px);border:none;border-radius:8px;
+          cursor:pointer;display:flex;align-items:center;justify-content:center;
+          color:var(--text3);transition:all .15s;opacity:0}
+        .artist-card:hover .star-btn{opacity:1}
+        .star-btn:hover{color:var(--accent);background:rgba(0,0,0,.8)}
+        .star-btn.starred{opacity:1;color:var(--accent)}
+
+        /* Hover card */
+        #hovercard{position:fixed;z-index:1000;width:380px;background:var(--bg2);
+          border:1px solid var(--line2);border-radius:var(--radius-lg);
+          box-shadow:0 32px 80px rgba(0,0,0,.8);padding:14px;
+          display:none;pointer-events:none}
+        #hovercard.visible{display:block}
+        .hc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+        .hc-img{aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--bg3)}
+        .hc-img img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .3s}
+        .hc-img img.loaded{opacity:1}
+        .hc-name{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .hc-meta{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)}
+        .hc-meta span{color:var(--accent)}
+
+        /* Pagination */
+        .pg-nav{display:flex;align-items:center;gap:10px;margin-top:1.5rem;font-size:13px;
+          color:var(--text2);font-family:'DM Mono',monospace;flex-wrap:wrap}
+        .pg-input{width:60px;padding:7px 10px;text-align:center;border:1px solid var(--line2);
+          border-radius:var(--radius);background:var(--bg2);color:var(--text);
+          font-family:'DM Mono',monospace;font-size:13px;outline:none;-moz-appearance:textfield}
+        .pg-input::-webkit-outer-spin-button,.pg-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+        .pg-input:focus{border-color:var(--accent)}
+        .pg-of{color:var(--text3)}
+
+        .empty{color:var(--text3);font-size:15px;padding:3rem 0;font-family:'DM Mono',monospace; text-align:center;}
+        .kbd{display:inline-block;background:var(--bg3);border:1px solid var(--line2);
+          border-radius:6px;padding:2px 6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)}
+
+        /* ═══════════════════════════════════════════════════
+           MOBILE / TOUCH  (≤600px)
+           ═══════════════════════════════════════════════════ */
+        @media (max-width: 600px) {
+          #wrap { padding: 0.5rem 0.5rem 7.5rem }
+          .header { margin-bottom: 1rem; gap: 10px; flex-direction: column; align-items: center; }
+          .header h1 { font-size: 20px; text-align: center; }
+          .app-switch { margin-left: 0; width: 100%; justify-content: center; margin-top: 4px; margin-bottom: 8px; }
+          .source-tabs { gap: 4px; justify-content: center; width: 100%; flex-wrap: wrap; }
+          .source-tab { padding: 6px 8px; font-size: 10px }
+          .letter-grid { gap: 3px; margin-bottom: 1rem }
+          .letter-btn { width: 32px; height: 32px; font-size: 12px }
+          .lbadge { display: none }
+          .gsearch-input { font-size: 13px; padding: 10px 12px 10px 34px }
+          .gsearch-results { max-height: 220px }
+          .controls { display: none }
+          .stat-bar { margin-bottom: 0.6rem }
+          .artist-grid { grid-template-columns: repeat(2, 1fr); gap: 8px }
+          .copy-btn { opacity: 1 !important; width: 24px; height: 24px }
+          .star-btn  { opacity: 0.9 !important; width: 32px; height: 32px }
+          .artist-card:hover { transform: none; box-shadow: none }
+          .card-body { padding: 8px 10px 10px }
+          .card-name { font-size: 11px }
+          .card-count { font-size: 9px }
+          .card-rank { font-size: 9px; padding: 3px 6px }
+          .pg-nav { gap: 8px; margin-top: 1rem }
+          .btn { padding: 8px 14px; font-size: 12px }
+          .pg-input { width: 56px; padding: 8px 10px; font-size: 13px }
+          #status .kbd { display: none }
+          #hovercard { display: none !important }
+
+          .mobile-bar {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 500;
+            background: rgba(14,14,16,0.97);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid var(--line2);
+            padding: 8px 10px 12px;
+            display: flex; flex-direction: column; gap: 8px; align-items: stretch;
+          }
+          .mobile-bar .mb-search {
+            width: 100%; padding: 10px 12px;
+            border: 1px solid var(--line2); border-radius: var(--radius);
+            background: var(--bg3); color: var(--text);
+            font-family: 'DM Mono', monospace; font-size: 13px; outline: none;
+          }
+          .mobile-bar .mb-search:focus { border-color: var(--accent) }
+          .mobile-bar .mb-search::placeholder { color: var(--text3) }
+          .mb-right {
+            display: flex; gap: 6px; align-items: center; width: 100%;
+            overflow-x: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
+            padding-bottom: 2px;
+          }
+          .mb-right::-webkit-scrollbar { display: none; }
+          .mb-icon-btn {
+            width: 36px; height: 36px; border: 1px solid var(--line2); border-radius: 8px;
+            background: var(--bg3); color: var(--text2);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0; transition: all .15s;
+          }
+          .mb-icon-btn.on { background: rgba(224,40,204,.15); color: var(--accent); border-color: rgba(224,40,204,.3) }
+          .mb-icon-small { width: 28px !important; font-weight: bold; font-size: 16px; }
+          .mb-sort {
+            height: 36px; padding: 0 8px; border: 1px solid var(--line2); border-radius: 8px;
+            background: var(--bg3); color: var(--text2); flex-shrink: 0;
+            font-family: 'DM Mono', monospace; font-size: 11px;
+            outline: none; cursor: pointer;
+          }
+        }
+
+        @media (min-width: 601px) and (max-width: 900px) {
+          .artist-grid { grid-template-columns: repeat(3, 1fr) }
+        }
+
+        @media (min-width: 601px) {
+          .mobile-bar { display: none !important }
+        }
+    </style>
+</head>
+<body>
+<div id="wrap">
+    <div class="header">
+        <h1>booru <span class="slash">//</span> browser</h1>
+
+        <div class="app-switch">
+            <a href="/">artists</a>
+            <a href="/characters" class="active">characters</a>
+        </div>
+
+        <div class="source-tabs">
+            <button class="source-tab" onclick="document.getElementById('importFile').click()" title="Import backup">import</button>
+            <button class="source-tab" onclick="exportBackup()" title="Export backup">export</button>
+            <div style="width: 1px; background: var(--line2); margin: 0 4px;"></div>
+            <button class="source-tab active" onclick="setSource('danbooru')">danbooru</button>
+            <button class="source-tab" onclick="setSource('gelbooru')">gelbooru</button>
+            <button class="source-tab" onclick="setSource('e621')">e621</button>
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importBackup(event)">
+        </div>
+    </div>
+
+    <div id="proxybanner"></div>
+
+    <div class="gsearch-row">
+        <div class="gsearch-wrap" id="gsearchWrap">
+            <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
+                <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M9 9l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <input type="text" class="gsearch-input" id="gsearch"
+                   placeholder="search all characters across all letters…"
+                   oninput="onGlobalSearch(this.value)"
+                   onkeydown="onGlobalKey(event)"
+                   autocomplete="off"/>
+            <div class="gsearch-results" id="gsearchResults"></div>
+        </div>
+    </div>
+
+    <div class="letter-grid" id="lgrid"></div>
+
+    <div class="prog-bar"><div class="prog-fill" id="prog"></div></div>
+    <div class="status" id="status">select a letter or search above · <span class="kbd">←</span><span class="kbd">→</span> pages · <span class="kbd">A–Z</span> letters · <span class="kbd">F</span> favorites</div>
+
+    <div class="controls">
+        <input type="text" class="search-input" id="search"
+               placeholder="filter within loaded results…" oninput="onSearch(this.value)"/>
+
+        <select class="sort-select" id="folderSel" onchange="onFolderChange()"></select>
+        <button class="btn" style="padding: 7px 12px;" onclick="createNewFolder()" title="new folder">+</button>
+        <button class="btn" id="delFolderBtn" style="padding: 7px 12px; display:none; border-color: var(--danger); color: var(--danger);" onclick="deleteCurrentFolder()" title="delete folder">−</button>
+
+        <select class="sort-select" id="sortsel" onchange="onSort()">
+            <option value="count-desc">posts ↓</option>
+            <option value="count-asc">posts ↑</option>
+            <option value="name-asc">name A→Z</option>
+            <option value="name-desc">name Z→A</option>
+        </select>
+        <label class="toggle-wrap"><input type="checkbox" id="safemode" checked onchange="onSafeToggle()"> blur nsfw</label>
+        <label class="toggle-wrap"><input type="checkbox" id="showprev" checked onchange="onPrevToggle()"> previews</label>
+        <button class="favs-toggle" id="favsToggle" onclick="toggleFavsView()">
+            <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+                <path d="M7 12s-5.5-3.5-5.5-7A3.5 3.5 0 0 1 7 3.5 3.5 3.5 0 0 1 12.5 5c0 3.5-5.5 7-5.5 7z"
+                      stroke="currentColor" stroke-width="1.3" fill="none" id="favIcon"/>
+            </svg>
+            favs <span id="favCount"></span>
+        </button>
+    </div>
+
+    <div class="stat-bar">
+        <div class="stat-bar-left">
+            <span id="stats"></span>
+            <span id="imgprog"></span>
+        </div>
+        <button class="btn" id="expbtn" onclick="exportCSV()" style="display:none">export csv ↓</button>
+    </div>
+
+    <div id="twrap"></div>
+</div>
+
+<div class="mobile-bar" id="mobileBar">
+    <input class="mb-search" id="mbSearch" type="text"
+           placeholder="filter…" oninput="onSearch(this.value)" autocomplete="off"/>
+    <div class="mb-right">
+        <button class="mb-icon-btn mb-icon-small" onclick="createNewFolder()" title="new folder">+</button>
+        <button class="mb-icon-btn mb-icon-small" id="mbDelFolderBtn" onclick="deleteCurrentFolder()" title="delete folder" style="display:none; color: var(--danger); border-color: rgba(255,95,95,.3);">−</button>
+        <select class="mb-sort" id="mbFolderSel" onchange="onMbFolderChange()"></select>
+
+        <select class="mb-sort" id="mbSort" onchange="onMbSort(this.value)">
+            <option value="count-desc">posts↓</option>
+            <option value="count-asc">posts↑</option>
+            <option value="name-asc">A→Z</option>
+            <option value="name-desc">Z→A</option>
+        </select>
+        <button class="mb-icon-btn" id="mbBlur" onclick="onMbBlur()" title="blur nsfw">
+            <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
+                <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+                <circle cx="7.5" cy="7.5" r="2" fill="currentColor"/>
+            </svg>
+        </button>
+        <button class="mb-icon-btn" id="mbFavs" onclick="toggleFavsView()" title="favorites">
+            <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
+                <path d="M7 12s-5.5-3.5-5.5-7A3.5 3.5 0 0 1 7 3.5 3.5 3.5 0 0 1 12.5 5c0 3.5-5.5 7-5.5 7z"
+                      stroke="currentColor" stroke-width="1.3" fill="none" id="mbFavIcon"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<div id="hovercard">
+    <div class="hc-grid" id="hcGrid"></div>
+    <div class="hc-name" id="hcName"></div>
+    <div class="hc-meta" id="hcMeta"></div>
+</div>
+
+<script>
+    // ── Constants & state ──────────────────────────────────────────────────────
+    const PROXY = `http://${location.hostname}:8765`;
+    const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
+    const PG = 60, CONCURRENCY = 8;
+
+    let cache = {}, previewCache = {}, badgeCache = {};
+    let currentLetter = null, ac = null, imgAbort = null;
+    let currentData = [], sortedData = [], filterText = '', curPage = 0;
+    let safeOnly = true, showPreviews = true, proxyOk = false;
+    let source = 'danbooru';
+    let sortMode = 'count-desc';
+    let showFavs = false;
+
+    // ── Favorites & Folders Initialization (Separated for Characters) ──────────
+    let folders = JSON.parse(localStorage.getItem('booru-chars-folders')) || ['Default'];
+    let currentFolder = 'all';
+
+    let favorites = new Map();
+    try {
+        let v2Data = JSON.parse(localStorage.getItem('booru-chars-favs-v2') || 'null');
+        if (v2Data) {
+            v2Data.forEach(f => {
+                if (!f.folder) f.folder = 'Default';
+                if (!folders.includes(f.folder)) folders.push(f.folder);
+                favorites.set(f.source + ':' + f.name, f);
+            });
+        }
+        localStorage.setItem('booru-chars-folders', JSON.stringify(folders));
+    } catch (e) { console.error("Favs load error:", e); }
+
+    const PH = `<div class="ph"><svg width="32" height="32" viewBox="0 0 20 20" fill="none">
+      <rect x="2" y="4" width="16" height="12" rx="2" stroke="#666" stroke-width="1.2"/>
+      <circle cx="7" cy="9" r="1.5" fill="#666"/>
+      <path d="M2 14l4-4 3 3 3-4 4 5" stroke="#666" stroke-width="1.2" fill="none"/>
+    </svg></div>`;
+    window.PH = PH;
+
+    // ── Backup System ──────────────────────────────────────────────────────────
+    function exportBackup() {
+        const data = {
+            folders: folders,
+            favorites: Array.from(favorites.values())
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `booru_chars_backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+    }
+
+    function importBackup(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.folders && data.favorites) {
+                    if (!confirm("This will merge the imported characters and folders with your current ones. Continue?")) return;
+
+                    data.folders.forEach(f => {
+                        if (!folders.includes(f)) folders.push(f);
+                    });
+
+                    data.favorites.forEach(f => {
+                        if (!f.folder) f.folder = 'Default';
+                        favorites.set(f.source + ':' + f.name, f);
+                    });
+
+                    saveFolders();
+                    saveFavs();
+                    alert("Backup imported successfully!");
+                    if (showFavs) applySortFilter();
+                } else {
+                    alert("Invalid backup file format.");
+                }
+            } catch (err) {
+                alert("Error reading file.");
+            }
+            event.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    // ── Smart Image Retry ──────────────────────────────────────────────────────
+    window.retryImage = function(img) {
+      if (!img.dataset.retried) {
+        img.dataset.retried = '1';
+        setTimeout(() => {
+          let baseSrc = img.src.split('&retry=')[0];
+          img.src = baseSrc + '&retry=' + Date.now();
+        }, 1500);
+      } else {
+        img.parentElement.innerHTML = window.PH;
+      }
+    };
+
+    // ── Hover Card Helper ──────────────────────────────────────────────────────
+    function hideHoverCard() {
+        const hoverCard = document.getElementById('hovercard');
+        if (hoverCard) hoverCard.classList.remove('visible');
+        clearTimeout(hoverTimer);
+        hoverTarget = null;
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    const lgrid = document.getElementById('lgrid');
+    LETTERS.forEach(l => {
+      const b = document.createElement('button');
+      b.className = 'letter-btn'; b.id = 'lb-' + l;
+      b.innerHTML = `${l}<span class="lbadge" id="badge-${l}"></span>`;
+      b.onclick = () => loadLetter(l);
+      lgrid.appendChild(b);
+    });
+
+    renderFolderSelect();
+    updateFavBtn();
+    checkProxy();
+    setupKeyboard();
+    setupHoverCard();
+    document.getElementById('mbBlur')?.classList.toggle('on', safeOnly);
+    updateFolderBtns();
+
+    // ── Folders Logic ──────────────────────────────────────────────────────────
+    function renderFolderSelect() {
+        let html = `<option value="all">📁 all folders</option><option disabled>──────────</option>`;
+        folders.forEach(f => {
+            html += `<option value="${f.replace(/"/g, '&quot;')}">📁 ${f}</option>`;
+        });
+        const sel = document.getElementById('folderSel');
+        const mbSel = document.getElementById('mbFolderSel');
+        if (sel) { sel.innerHTML = html; sel.value = currentFolder; }
+        if (mbSel) { mbSel.innerHTML = html; mbSel.value = currentFolder; }
+    }
+
+    function saveFolders() {
+        localStorage.setItem('booru-chars-folders', JSON.stringify(folders));
+        renderFolderSelect();
+        updateFolderBtns();
+    }
+
+    function updateFolderBtns() {
+        const showDel = (currentFolder !== 'all' && currentFolder !== 'Default');
+        const d1 = document.getElementById('delFolderBtn');
+        const d2 = document.getElementById('mbDelFolderBtn');
+        if (d1) d1.style.display = showDel ? 'inline-block' : 'none';
+        if (d2) d2.style.display = showDel ? 'flex' : 'none';
+    }
+
+    function createNewFolder() {
+        let name = prompt("Enter new folder name:");
+        if (!name) return;
+        name = name.trim();
+        if (!name || folders.includes(name)) return;
+        folders.push(name);
+        saveFolders();
+        currentFolder = name;
+        renderFolderSelect();
+        updateFolderBtns();
+        if (showFavs) applySortFilter();
+    }
+
+    function deleteCurrentFolder() {
+        if (currentFolder === 'all' || currentFolder === 'Default') return;
+        if (!confirm(`Delete folder "${currentFolder}"?\n\nCharacters inside will NOT be deleted, they will be moved back to the "Default" folder.`)) return;
+
+        favorites.forEach((fav, key) => {
+            if (fav.folder === currentFolder) {
+                fav.folder = 'Default';
+            }
+        });
+        saveFavs();
+
+        folders = folders.filter(f => f !== currentFolder);
+        saveFolders();
+
+        currentFolder = 'all';
+        document.getElementById('folderSel').value = 'all';
+        if (document.getElementById('mbFolderSel')) document.getElementById('mbFolderSel').value = 'all';
+        updateFolderBtns();
+
+        curPage = 0;
+        if (showFavs) applySortFilter();
+    }
+
+    function onFolderChange() {
+        currentFolder = document.getElementById('folderSel').value;
+        if (document.getElementById('mbFolderSel')) document.getElementById('mbFolderSel').value = currentFolder;
+        updateFolderBtns();
+        curPage = 0;
+        if (showFavs) applySortFilter();
+    }
+
+    function onMbFolderChange() {
+        currentFolder = document.getElementById('mbFolderSel').value;
+        document.getElementById('folderSel').value = currentFolder;
+        updateFolderBtns();
+        curPage = 0;
+        if (showFavs) applySortFilter();
+    }
+
+    function moveFav(ckey, newFolder, e) {
+        e.preventDefault(); e.stopPropagation();
+        let fav = favorites.get(ckey);
+        if (fav) {
+            fav.folder = newFolder;
+            saveFavs();
+            if (showFavs && currentFolder !== 'all') {
+                hideHoverCard();
+                applySortFilter();
+            }
+        }
+    }
+
+    // ── Proxy check ────────────────────────────────────────────────────────────
+    async function checkProxy() {
+      const banner = document.getElementById('proxybanner');
+      try {
+        const res = await fetch(PROXY + '/ping', { mode: 'cors' });
+        const text = await res.text();
+        if (res.ok && text === 'no-auth') {
+          proxyOk = true;
+          banner.innerHTML = '<div class="proxy-banner proxy-err">⚠ proxy running — no api credentials. create auth.json.</div>';
+        } else if (res.ok) {
+          proxyOk = true;
+          banner.innerHTML = '<div class="proxy-banner proxy-ok">✓ proxy connected</div>';
+          setTimeout(() => banner.innerHTML = '', 2500);
+        } else throw new Error();
+      } catch {
+        proxyOk = false;
+        banner.innerHTML = '<div class="proxy-banner proxy-err">proxy not detected — run booru_proxy.py then refresh</div>';
+      }
+    }
+
+    // ── Source switching ───────────────────────────────────────────────────────
+    function setSource(s) {
+      if (source === s) return;
+      hideHoverCard();
+      source = s;
+      document.querySelectorAll('.source-tab').forEach(t =>
+        t.classList.toggle('active', t.textContent.trim() === s));
+      currentData = []; sortedData = []; filterText = '';
+      document.getElementById('search').value = '';
+      if (currentLetter && !showFavs) loadLetter(currentLetter);
+      else if (showFavs) applySortFilter();
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    function thumbUrl(name, src) { return `${PROXY}/thumb?artist=${encodeURIComponent(name)}&source=${src}`; }
+    function metaUrl(name, src)  { return `${PROXY}/thumb-meta?artist=${encodeURIComponent(name)}&source=${src}`; }
+    function hoverUrl(name, src) { return `${PROXY}/hover?artist=${encodeURIComponent(name)}&source=${src}`; }
+
+    function artistPageUrl(name, src) {
+      if (src === 'gelbooru') return `https://gelbooru.com/index.php?page=post&s=list&tags=${encodeURIComponent(name)}`;
+      if (src === 'e621') return `https://e621.net/posts?tags=${encodeURIComponent(name)}`;
+      return `https://danbooru.donmai.us/posts?tags=${encodeURIComponent(name)}`;
+    }
+
+    function setActive(l) {
+      document.querySelectorAll('.letter-btn').forEach(b => b.classList.remove('active'));
+      if (l) document.getElementById('lb-' + l)?.classList.add('active');
+    }
+    function setStatus(t, p) {
+      document.getElementById('status').textContent = t;
+      if (p !== undefined) document.getElementById('prog').style.width = p + '%';
+    }
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    function fmtCount(n) {
+      if (n >= 1000000) return (n/1000000).toFixed(1).replace(/\.0$/,'') + 'm';
+      if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/,'') + 'k';
+      return n.toString();
+    }
+
+    // ── Load letter ────────────────────────────────────────────────────────────
+    async function loadLetter(letter, keepFilter = false) {
+      hideHoverCard();
+      if (ac) ac.abort();
+      if (imgAbort) { imgAbort.abort(); imgAbort = null; }
+      currentLetter = letter; setActive(letter);
+
+      if (!keepFilter) {
+          filterText = '';
+          document.getElementById('search').value = '';
+          const mbSearch = document.getElementById('mbSearch');
+          if (mbSearch) mbSearch.value = '';
+      }
+      curPage = 0;
+      showFavs = false; updateFavBtn();
+
+      const key = source + '-' + letter;
+      if (cache[key]) { currentData = cache[key]; applySortFilter(); return; }
+
+      ac = new AbortController(); const sig = ac.signal;
+      setStatus('loading ' + letter + '…', 5);
+      document.getElementById('twrap').innerHTML = '';
+      document.getElementById('stats').textContent = '';
+      document.getElementById('expbtn').style.display = 'none';
+      document.getElementById('imgprog').textContent = '';
+
+      try {
+        let results = [];
+
+        // 1. Fast cache reading (type=character)
+        const cacheRes = await fetch(`${PROXY}/tags?letter=${encodeURIComponent(letter)}&source=${source}&page=1&type=character`, { signal: sig });
+        if (cacheRes.ok) {
+            const cacheData = await cacheRes.json();
+            if (cacheData.results && cacheData.results.length > 0 && cacheData.has_more === false) {
+                results = cacheData.results;
+            }
+        }
+
+        // 2. Fetch if no cache
+        if (results.length === 0) {
+            if (letter === '#') {
+                const digits = ['0','1','2','3','4','5','6','7','8','9'];
+                for (let i = 0; i < digits.length; i++) {
+                    let page = 1;
+                    setStatus(`loading digit ${digits[i]}…`, 10 + (i * 9));
+                    while (true) {
+                        const url = `${PROXY}/tags?letter=${digits[i]}&source=${source}&page=${page}&type=character`;
+                        const res = await fetch(url, { signal: sig });
+                        if (!res.ok) throw new Error('proxy error ' + res.status);
+                        const data = await res.json();
+                        (data.results || []).forEach(t => results.push({ name: t.name, count: t.count, source: source }));
+                        if (!data.has_more) break;
+                        page++; await sleep(200);
+                    }
+                }
+                results.sort((a, b) => b.count - a.count);
+            } else {
+                let page = 1;
+                while (true) {
+                    setStatus(`batch ${page} — ${results.length} characters…`, Math.min(85, 5 + page * 8));
+                    const url = `${PROXY}/tags?letter=${letter}&source=${source}&page=${page}&type=character`;
+                    const res = await fetch(url, { signal: sig });
+                    if (!res.ok) throw new Error('proxy error ' + res.status);
+                    const data = await res.json();
+                    (data.results || []).forEach(t => results.push({ name: t.name, count: t.count, source: source }));
+                    if (!data.has_more) break;
+                    page++; await sleep(200);
+                }
+            }
+
+            // 3. Save to cache with type=character
+            fetch(`${PROXY}/cache-save?source=${source}&letter=${encodeURIComponent(letter)}&type=character`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(results)
+            }).catch(() => {});
+        }
+
+        cache[key] = results; currentData = results;
+        const badge = document.getElementById('badge-' + letter);
+        if (badge) badge.textContent = fmtCount(results.length);
+        setStatus('', 100);
+        applySortFilter();
+
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+        setStatus('error: ' + e.message, 0);
+      }
+    }
+
+    // ── Sort & filter ──────────────────────────────────────────────────────────
+    function applySortFilter() {
+      let data;
+      if (showFavs) {
+        data = Array.from(favorites.values());
+        if (currentFolder !== 'all') {
+            data = data.filter(a => a.folder === currentFolder);
+        }
+      } else {
+        data = currentData;
+      }
+
+      if (filterText) {
+        const q = filterText.toLowerCase();
+        data = data.filter(a => a.name.includes(q));
+      }
+
+      switch (sortMode) {
+        case 'count-asc':  data = [...data].sort((a,b) => a.count - b.count); break;
+        case 'name-asc':   data = [...data].sort((a,b) => a.name.localeCompare(b.name)); break;
+        case 'name-desc':  data = [...data].sort((a,b) => b.name.localeCompare(a.name)); break;
+        default:           data = [...data].sort((a,b) => b.count - a.count);
+      }
+      sortedData = data;
+      renderGrid();
+    }
+
+    function onSearch(v) {
+      hideHoverCard();
+      filterText = v.trim().toLowerCase(); curPage = 0;
+      if (imgAbort) { imgAbort.abort(); imgAbort = null; }
+      const d = document.getElementById('search');
+      const m = document.getElementById('mbSearch');
+      if (d && document.activeElement !== d) d.value = v;
+      if (m && document.activeElement !== m) m.value = v;
+      applySortFilter();
+    }
+    function onSort() {
+      sortMode = document.getElementById('sortsel').value;
+      curPage = 0; applySortFilter();
+    }
+    function onSafeToggle() {
+      safeOnly = document.getElementById('safemode').checked;
+      document.querySelectorAll('.card-thumb img').forEach(img => {
+        const nameMatch = img.src.match(/artist=([^&]+)/);
+        const sourceMatch = img.src.match(/source=([^&]+)/);
+        if (!nameMatch || !sourceMatch) return;
+        const name = decodeURIComponent(nameMatch[1]);
+        const src = decodeURIComponent(sourceMatch[1]);
+        const pc = previewCache[src + ':' + name];
+        if (pc) img.style.filter = (safeOnly && !pc.safe) ? 'blur(10px)' : '';
+      });
+    }
+    function onPrevToggle() {
+      showPreviews = document.getElementById('showprev').checked;
+      if (imgAbort) { imgAbort.abort(); imgAbort = null; }
+      if (sortedData.length) renderGrid();
+    }
+
+    // ── Favorites ──────────────────────────────────────────────────────────────
+    function saveFavs() {
+      localStorage.setItem('booru-chars-favs-v2', JSON.stringify(Array.from(favorites.values())));
+      updateFavBtn();
+    }
+    function toggleFav(name, src, count, e) {
+      e.preventDefault(); e.stopPropagation();
+      const key = src + ':' + name;
+      if (favorites.has(key)) favorites.delete(key);
+      else {
+          let targetFolder = currentFolder === 'all' ? 'Default' : currentFolder;
+          favorites.set(key, { name: name, source: src, count: parseInt(count) || 0, folder: targetFolder });
+      }
+      saveFavs();
+      const card = e.currentTarget.closest('.artist-card');
+      if (card) card.querySelector('.star-btn')?.classList.toggle('starred', favorites.has(key));
+      if (showFavs) applySortFilter();
+    }
+    function toggleFavsView() {
+      hideHoverCard();
+      showFavs = !showFavs;
+      curPage = 0; filterText = '';
+      document.getElementById('search').value = '';
+      updateFavBtn();
+      if (showFavs && favorites.size === 0) {
+        document.getElementById('twrap').innerHTML = '<p class="empty">no favorites yet — star characters to add them</p>';
+        document.getElementById('stats').textContent = '';
+        setActive(null);
+        return;
+      }
+      if (showFavs) setActive(null);
+      else if (currentLetter) loadLetter(currentLetter);
+
+      applySortFilter();
+    }
+    function updateFavBtn() {
+      const btn = document.getElementById('favsToggle');
+      const cnt = document.getElementById('favCount');
+      btn.classList.toggle('on', showFavs);
+
+      let visibleCount = favorites.size;
+      if (showFavs && currentFolder !== 'all') {
+          visibleCount = Array.from(favorites.values()).filter(f => f.folder === currentFolder).length;
+      }
+      cnt.textContent = visibleCount > 0 ? `(${visibleCount})` : '';
+
+      document.getElementById('favIcon').setAttribute('fill', showFavs ? 'currentColor' : 'none');
+      const mb = document.getElementById('mbFavs');
+      const mi = document.getElementById('mbFavIcon');
+      if (mb) mb.classList.toggle('on', showFavs);
+      if (mi) mi.setAttribute('fill', showFavs ? 'currentColor' : 'none');
+    }
+
+    // ── Smart Copy to clipboard ────────────────────────────────────────────────
+    function smartCopyName(name, ckey, btn, e) {
+      e.preventDefault(); e.stopPropagation();
+
+      let copyText = name.replace(/_/g, ' ');
+      const pc = previewCache[ckey];
+
+      if (name.includes('(') && name.includes(')')) {
+          copyText = name.replace(/\(/g, '\\(').replace(/\)/g, '\\)').replace(/_/g, ' ');
+      } else if (pc && pc.copyright) {
+          let copyr = pc.copyright.split(',')[0].trim().replace(/_/g, ' ');
+          if (copyr && copyr !== "original") {
+              copyText = `${copyText}, ${copyr}`;
+          }
+      }
+
+      const doCopy = () => {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(copyText);
+        }
+        const inp = document.createElement('input');
+        inp.value = copyText; inp.style.position = 'fixed'; inp.style.opacity = '0';
+        document.body.appendChild(inp); inp.select();
+        document.execCommand('copy');
+        document.body.removeChild(inp);
+        return Promise.resolve();
+      };
+      doCopy().then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>`;
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = copyIcon();
+        }, 1500);
+      }).catch(() => {});
+    }
+
+    function copyIcon() {
+      return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <rect x="4" y="1" width="7" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+        <rect x="1" y="4" width="7" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="var(--bg2)"/>
+      </svg>`;
+    }
+
+    // ── Global search ──────────────────────────────────────────────────────────
+    let gsearchTimer = null, gsearchAC = null;
+    function onGlobalSearch(v) {
+      clearTimeout(gsearchTimer);
+      const q = v.trim();
+      if (!q) { closeGSearch(); return; }
+      gsearchTimer = setTimeout(() => runGlobalSearch(q), 350);
+    }
+    async function runGlobalSearch(q) {
+      if (gsearchAC) gsearchAC.abort();
+      gsearchAC = new AbortController();
+      const sig = gsearchAC.signal;
+      try {
+        const proxyUrl = `${PROXY}/tags?letter=${encodeURIComponent(q[0])}&source=${source}&type=character`;
+        const res = await fetch(proxyUrl, { signal: sig });
+
+        if (!res.ok) return;
+        const d = await res.json();
+        const results = (d.results || []).filter(t => t.name.includes(q.toLowerCase())).slice(0, 20);
+        showGSearchResults(results, q);
+      } catch (e) { if (e.name !== 'AbortError') closeGSearch(); }
+    }
+
+    function showGSearchResults(results, q) {
+      const box = document.getElementById('gsearchResults');
+      if (!results.length) { box.classList.remove('open'); return; }
+      box.innerHTML = results.map(r =>
+        `<div class="gsearch-item" onclick="selectGSearch('${r.name.replace(/'/g,"\\'")}')">
+          <span>${r.name}</span><span class="gi-count">${fmtCount(r.count)}</span>
+        </div>`
+      ).join('');
+      box.classList.add('open');
+    }
+
+    function selectGSearch(name) {
+      hideHoverCard();
+      closeGSearch();
+      document.getElementById('gsearch').value = '';
+
+      let letter = name[0].toUpperCase();
+      if (!/[A-Z]/.test(letter)) letter = '#';
+
+      const key = source + '-' + letter;
+      if (cache[key]) {
+        currentLetter = letter; setActive(letter);
+        currentData = cache[key];
+        filterText = name;
+        document.getElementById('search').value = name;
+        const mb = document.getElementById('mbSearch');
+        if (mb) mb.value = name;
+        curPage = 0; showFavs = false; updateFavBtn();
+        applySortFilter();
+      } else {
+        filterText = name;
+        document.getElementById('search').value = name;
+        const mb = document.getElementById('mbSearch');
+        if (mb) mb.value = name;
+        loadLetter(letter, true);
+      }
+    }
+
+    function closeGSearch() {
+      document.getElementById('gsearchResults').classList.remove('open');
+    }
+    function onGlobalKey(e) {
+      const box = document.getElementById('gsearchResults');
+      if (e.key === 'Escape') { closeGSearch(); document.getElementById('gsearch').blur(); }
+    }
+    document.addEventListener('click', e => {
+      if (!document.getElementById('gsearchWrap').contains(e.target)) closeGSearch();
+    });
+
+    // ── Keyboard navigation ────────────────────────────────────────────────────
+    function setupKeyboard() {
+      document.addEventListener('keydown', e => {
+        const tag = document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+        if (e.code === 'ArrowRight' || e.code === 'ArrowDown') {
+          e.preventDefault();
+          const total = sortedData.length;
+          const totalPages = Math.ceil(total / PG);
+          if (curPage < totalPages - 1) goPage(curPage + 1);
+        } else if (e.code === 'ArrowLeft' || e.code === 'ArrowUp') {
+          e.preventDefault();
+          if (curPage > 0) goPage(curPage - 1);
+        } else if (e.code === 'KeyF') {
+          e.preventDefault();
+          hideHoverCard();
+          toggleFavsView();
+        } else if (e.code === 'Escape') {
+          hideHoverCard();
+          filterText = ''; document.getElementById('search').value = '';
+          applySortFilter();
+        } else if (e.code && e.code.startsWith('Key')) {
+          const l = e.code.replace('Key', '');
+          if (LETTERS.includes(l)) loadLetter(l);
+        }
+      });
+    }
+
+    // ── Hover card ─────────────────────────────────────────────────────────────
+    let hoverTimer = null, hoverTarget = null;
+    const hoverCard = document.getElementById('hovercard');
+
+    function setupHoverCard() {
+      if (window.matchMedia('(hover: none)').matches) return;
+      document.addEventListener('mouseover', e => {
+        const card = e.target.closest('.artist-card');
+        if (!card || !proxyOk) return;
+        const name = card.dataset.name;
+        const cardSource = card.dataset.source || source;
+        if (!name || name === hoverTarget) return;
+        clearTimeout(hoverTimer);
+        hoverTarget = name;
+        hoverTimer = setTimeout(() => showHover(card, name, cardSource), 400);
+      });
+      document.addEventListener('mouseout', e => {
+        const card = e.target.closest('.artist-card');
+        if (card && !card.contains(e.relatedTarget)) {
+          hideHoverCard();
+        }
+      });
+      document.addEventListener('mousemove', e => {
+        if (!hoverCard.classList.contains('visible')) return;
+        positionHover(e.clientX, e.clientY);
+      });
+    }
+
+    async function showHover(card, name, cardSource) {
+      document.getElementById('hcName').textContent = name;
+
+      let artistData = sortedData.find(a => a.name === name && (a.source === cardSource || (!a.source && source === cardSource)));
+      if (!artistData) {
+          const key = cardSource + ':' + name;
+          artistData = favorites.get(key);
+      }
+
+      const pc = previewCache[cardSource + ':' + name];
+      let copyText = pc && pc.copyright ? `<br><span style="color:var(--text2)">${pc.copyright.replace(/_/g, ' ')}</span>` : '';
+
+      document.getElementById('hcMeta').innerHTML = artistData
+        ? `<span>${fmtCount(artistData.count)}</span> posts · ${cardSource}${copyText}` : cardSource;
+      document.getElementById('hcGrid').innerHTML =
+        '<div class="hc-img"></div><div class="hc-img"></div>' +
+        '<div class="hc-img"></div><div class="hc-img"></div>';
+
+      const rect = card.getBoundingClientRect();
+      positionHoverByRect(rect);
+      hoverCard.classList.add('visible');
+
+      try {
+        const res = await fetch(hoverUrl(name, cardSource));
+        if (!res.ok) return;
+        const urls = await res.json();
+        const cells = document.getElementById('hcGrid').children;
+        const needsBlur = safeOnly && pc && !pc.safe;
+        urls.slice(0, 4).forEach((url, i) => {
+          if (!cells[i]) return;
+          const img = document.createElement('img');
+          img.onload = () => img.classList.add('loaded');
+          if (needsBlur) img.style.filter = 'blur(12px)';
+          img.src = `${PROXY}/proxy?url=${encodeURIComponent(url)}`;
+          cells[i].appendChild(img);
+        });
+      } catch {}
+    }
+
+    function positionHover(mx, my) {
+      const cw = hoverCard.offsetWidth || 340;
+      const ch = hoverCard.offsetHeight || 280;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let x = mx + 16, y = my - ch / 2;
+      if (x + cw > vw - 12) x = mx - cw - 16;
+      if (y < 8) y = 8;
+      if (y + ch > vh - 8) y = vh - ch - 8;
+      hoverCard.style.left = x + 'px';
+      hoverCard.style.top  = y + 'px';
+    }
+    function positionHoverByRect(rect) {
+      const cw = 340, ch = 280;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let x = rect.right + 8, y = rect.top;
+      if (x + cw > vw - 12) x = rect.left - cw - 8;
+      if (y + ch > vh - 8) y = vh - ch - 8;
+      if (y < 8) y = 8;
+      hoverCard.style.left = x + 'px';
+      hoverCard.style.top  = y + 'px';
+    }
+
+    // ── Render ─────────────────────────────────────────────────────────────────
+    function renderGrid() {
+      hideHoverCard();
+      const total = sortedData.length;
+      document.getElementById('stats').textContent = total > 0
+        ? total.toLocaleString() + ' characters' + (showFavs ? ' ★' : '') : 'no results';
+      document.getElementById('expbtn').style.display = total > 0 ? 'inline-block' : 'none';
+      document.getElementById('imgprog').textContent = '';
+      if (total === 0) {
+        document.getElementById('twrap').innerHTML = '<p class="empty">no characters found</p>'; return;
+      }
+
+      const start = curPage * PG, end = Math.min(start + PG, total);
+      const slice = sortedData.slice(start, end);
+
+      let html = '<div class="artist-grid">';
+      slice.forEach((a, i) => {
+        const rank = start + i + 1;
+        const cardSource = a.source || source;
+        const url  = artistPageUrl(a.name, cardSource);
+        const ckey = cardSource + ':' + a.name;
+        const pc   = previewCache[ckey];
+        const starred = favorites.has(ckey);
+
+        let thumbHtml = '';
+        if (showPreviews) {
+          if (pc !== undefined && pc !== null) {
+            const blur = safeOnly && !pc.safe ? 'filter:blur(10px);' : '';
+            thumbHtml = `<div class="card-thumb">
+              <img src="${thumbUrl(a.name, cardSource)}" style="${blur}" loading="lazy"
+                onload="this.classList.add('loaded')"
+                onerror="window.retryImage(this)">
+            </div>`;
+          } else {
+            thumbHtml = `<div class="card-thumb" id="th-${i}">${PH}</div>`;
+          }
+        }
+
+        // Folder select inside card (only in Favs view)
+        let folderSelectHtml = '';
+        if (showFavs) {
+            let favData = favorites.get(ckey);
+            let opts = folders.map(f => `<option value="${f.replace(/"/g, '&quot;')}" ${f === (favData?.folder || 'Default') ? 'selected' : ''}>${f}</option>`).join('');
+            folderSelectHtml = `<select class="card-folder-sel" onclick="event.preventDefault(); event.stopPropagation();" onchange="moveFav('${ckey}', this.value, event)">${opts}</select>`;
+        }
+
+        html += `<div class="artist-card" data-name="${a.name.replace(/"/g,'&quot;')}" data-source="${cardSource}">
+          <a href="${url}" target="_blank">
+            ${thumbHtml}
+            <div class="card-rank">#${rank}</div>
+          </a>
+          <div class="card-body">
+            <a href="${url}" target="_blank" style="text-decoration:none; color:inherit; display:block;">
+              <div class="card-name-row">
+                <div class="card-name">${a.name}</div>
+                <button class="copy-btn" onclick="smartCopyName('${a.name.replace(/'/g,"\\'").replace(/"/g,"&quot;")}', '${ckey}', this, event)"
+                  title="copy name">${copyIcon()}</button>
+              </div>
+              <div class="card-count">${fmtCount(a.count)} <span>posts</span></div>
+            </a>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; min-height:16px;">
+              <div class="src-badge">${cardSource}</div>
+              ${folderSelectHtml}
+            </div>
+          </div>
+          <button class="star-btn ${starred?'starred':''}"
+            onclick="toggleFav('${a.name.replace(/'/g,"\\'")}', '${cardSource}', ${a.count}, event)"
+            title="${starred?'remove from':'add to'} favorites">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+              <path d="M7 12s-5.5-3.5-5.5-7A3.5 3.5 0 0 1 7 3.5 3.5 3.5 0 0 1 12.5 5c0 3.5-5.5 7-5.5 7z"
+                stroke="currentColor" stroke-width="1.3" fill="${starred?'currentColor':'none'}"/>
+            </svg>
+          </button>
+        </div>`;
+      });
+      html += '</div>';
+
+      const totalPages = Math.ceil(total / PG);
+      if (totalPages > 1) {
+        html += '<div class="pg-nav">';
+        if (curPage > 0) html += `<button class="btn" onclick="goPage(${curPage-1})">← prev</button>`;
+        html += `<input type="number" class="pg-input" id="pg-input" min="1" max="${totalPages}"
+          value="${curPage+1}" onchange="goPageInput(this,${totalPages})"
+          onkeydown="if(event.key==='Enter')goPageInput(this,${totalPages})">`;
+        html += `<span class="pg-of">/ ${totalPages.toLocaleString()}</span>`;
+        if (curPage < totalPages - 1) html += `<button class="btn" onclick="goPage(${curPage+1})">next →</button>`;
+        html += '</div>';
+      }
+
+      document.getElementById('twrap').innerHTML = html;
+      updateFavBtn(); // update counts dynamically based on filtered view
+      if (showPreviews && proxyOk) loadPreviews(slice);
+      else if (showPreviews && !proxyOk) document.getElementById('imgprog').textContent = 'start proxy to load images';
+    }
+
+    // ── Load previews ──────────────────────────────────────────────────────────
+    async function loadPreviews(artists) {
+      if (imgAbort) imgAbort.abort();
+      const controller = new AbortController();
+      imgAbort = controller;
+      const sig = controller.signal;
+
+      const idxMap = new Map(artists.map((a, i) => [a.name, i]));
+
+      for (const a of artists) {
+        const idx = idxMap.get(a.name);
+        const cardSource = a.source || source;
+        const ckey = cardSource + ':' + a.name;
+        const pc = previewCache[ckey];
+        if (pc !== undefined && pc !== null) {
+          const cell = document.getElementById('th-' + idx);
+          if (cell) {
+            const blur = safeOnly && !pc.safe ? 'filter:blur(10px);' : '';
+            cell.innerHTML = `<img src="${thumbUrl(a.name, cardSource)}" style="${blur}" loading="lazy"
+              onload="this.classList.add('loaded')" onerror="window.retryImage(this)">`;
+          }
+        }
+      }
+
+      const toLoad = artists.filter(a => {
+        const cardSource = a.source || source;
+        return !previewCache.hasOwnProperty(cardSource + ':' + a.name);
+      });
+      if (!toLoad.length) return;
+
+      let done = 0;
+      const queue = toLoad.map(a => ({ name: a.name, idx: idxMap.get(a.name), cardSource: a.source || source }));
+
+      async function worker() {
+        while (queue.length) {
+          if (sig.aborted) return;
+          const { name, idx, cardSource } = queue.shift();
+          const ckey = cardSource + ':' + name;
+
+          let attempts = 2;
+          let pc = null;
+          while (attempts > 0) {
+            try {
+              const res = await fetch(metaUrl(name, cardSource), { signal: sig });
+              pc = res.ok ? await res.json().then(d => d.url ? { safe: !!d.safe, copyright: d.copyright } : null) : null;
+              break;
+            } catch (e) {
+              if (e.name === 'AbortError') return;
+              attempts--;
+              if (attempts > 0) await sleep(1000);
+            }
+          }
+
+          previewCache[ckey] = pc;
+          if (sig.aborted) return;
+          const cell = document.getElementById('th-' + idx);
+          if (cell) {
+            if (pc !== null) {
+              const blur = safeOnly && !pc.safe ? 'filter:blur(10px);' : '';
+              cell.innerHTML = `<img src="${thumbUrl(name, cardSource)}" style="${blur}" loading="lazy"
+                onload="this.classList.add('loaded')" onerror="window.retryImage(this)">`;
+            } else {
+              cell.innerHTML = window.PH;
+            }
+          }
+          done++;
+          const el = document.getElementById('imgprog');
+          const rem = toLoad.length - done;
+          if (el) el.textContent = rem > 0 ? rem + ' left…' : '';
+        }
+      }
+
+      const activeConcurrency = (source === 'gelbooru' || source === 'e621' || showFavs) ? 2 : CONCURRENCY;
+      await Promise.all(Array.from({ length: activeConcurrency }, worker));
+      if (!sig.aborted) {
+        const el = document.getElementById('imgprog');
+        if (el) el.textContent = '';
+      }
+    }
+
+    // ── Pagination ─────────────────────────────────────────────────────────────
+    function goPageInput(input, totalPages) {
+      const p = Math.max(0, Math.min(totalPages - 1, parseInt(input.value, 10) - 1));
+      if (isNaN(p)) { input.value = curPage + 1; return; }
+      input.value = p + 1; goPage(p);
+    }
+    function goPage(p) {
+      curPage = p;
+      if (imgAbort) { imgAbort.abort(); imgAbort = null; }
+      Object.keys(previewCache).forEach(k => { if (previewCache[k] === null) delete previewCache[k]; });
+      renderGrid();
+      window.scrollTo(0, 0);
+    }
+
+    // ── Export ─────────────────────────────────────────────────────────────────
+    function onMbSort(v) {
+      sortMode = v;
+      document.getElementById('sortsel').value = v;
+      curPage = 0; applySortFilter();
+    }
+
+    function onMbBlur() {
+      safeOnly = !safeOnly;
+      document.getElementById('safemode').checked = safeOnly;
+      document.getElementById('mbBlur').classList.toggle('on', safeOnly);
+      onSafeToggle();
+    }
+
+    function exportCSV() {
+      let csv = 'rank,character,posts,source,folder\n';
+      sortedData.forEach((a, i) => {
+          let folder = a.folder || 'Default';
+          csv += `${i+1},"${a.name}",${a.count},${a.source || source},"${folder}"\n`;
+      });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      let filename = showFavs ? `favs_chars_${currentFolder.replace(/\W+/g, '_')}.csv` : `${source}_chars_${currentLetter}.csv`;
+      a.download = filename;
+      a.click();
+    }
+</script>
+</body>
+</html>
