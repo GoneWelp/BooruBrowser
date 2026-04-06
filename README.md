@@ -2,6 +2,10 @@
 
 A local browser tool for exploring artists on Danbooru, Gelbooru or e621 — with image previews, hover cards, favorites, prompt mixing, sorting, and global search.
 
+![Artists Database](assets/1.png)
+
+![Characters Database](assets/2.png)
+
 ---
 
 ## Files
