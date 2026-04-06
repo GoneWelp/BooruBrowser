@@ -118,6 +118,8 @@ Open the phone URL in your phone's browser while both devices are on the same Wi
 - Toggle **blur nsfw** to blur images flagged as non-safe
 - Toggle **previews** off to hide all thumbnails
 
+![Preview](assets/4.png)
+
 ### Sorting
 Use the sort dropdown to order by:
 - Posts ↓ (default — most posts first)
