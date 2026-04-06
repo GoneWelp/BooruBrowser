@@ -140,12 +140,11 @@ Use the sort dropdown to order by:
 - Click **reroll mix** to get a new random pair
 - Requires at least 2 favorited artists
 
+![Prompt Mixer](assets/3.png)
+
 ### Smart Copy
 - Artists: Hover over a card and click the clipboard icon to copy the artist's name.
 - Characters: It automatically pulls the copyright name (if available from the preview load) and formats it properly for prompting.
-
-### Click to copy
-- Hover over a card and click the **clipboard icon** next to the artist name to copy it
 
 ### Export
 - Click **export csv ↓** to download the current results as a CSV file
@@ -161,7 +160,7 @@ On small screens (≤600px), the standard controls bar is replaced by a fixed bo
 - A **favorites** icon toggle
 - A **mix favs** icon button
 
-The hover preview card is hidden on mobile (touch devices).
+The hover preview card is hidden on mobile.
 
 ---
 
