@@ -477,7 +477,7 @@
 </div>
 
 <script>
-    // ── Constants & state ──────────────────────────────────────────────────────
+    // ── Constants & state ──
     const PROXY = `http://${location.hostname}:8765`;
     const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
     const PG = 60, CONCURRENCY = 8;
@@ -491,7 +491,7 @@
     let showFavs = false;
     let showMix = false;
 
-    // ── Storage Configuration ──────────────────────────────────────────────────
+    // ── Storage Configuration ──
     localforage.config({
         name: 'BooruBrowser',
         storeName: 'booru_data'
@@ -577,7 +577,7 @@
     </svg></div>`;
     window.PH = PH;
 
-    // ── Mode Switcher ──────────────────────────────────────────────────────────
+    // ── Mode Switcher ──
     function setMode(mode) {
         if (currentMode === mode) return;
         hideHoverCard();
@@ -614,7 +614,7 @@
         else document.getElementById('twrap').innerHTML = '';
     }
 
-    // ── Backup System ──────────────────────────────────────────────────────────
+    // ── Backup System ──
     function exportBackup() {
         const s = getActiveState();
         const data = { folders: s.folders, favorites: Array.from(s.favorites.values()) };
@@ -662,7 +662,7 @@
         reader.readAsText(file);
     }
 
-    // ── Smart Image Retry ──────────────────────────────────────────────────────
+    // ── Smart Image Retry ──
     window.retryImage = function(img) {
       if (!img.dataset.retried) {
         img.dataset.retried = '1';
@@ -675,7 +675,7 @@
       }
     };
 
-    // ── Hover Card Helper ──────────────────────────────────────────────────────
+    // ── Hover Card Helper ──
     function hideHoverCard() {
         const hoverCard = document.getElementById('hovercard');
         if (hoverCard) hoverCard.classList.remove('visible');
@@ -683,7 +683,7 @@
         hoverTarget = null;
     }
 
-    // ── Init ───────────────────────────────────────────────────────────────────
+    // ── Init ──
     const lgrid = document.getElementById('lgrid');
     LETTERS.forEach(l => {
       const b = document.createElement('button');
@@ -699,7 +699,7 @@
     setupHoverCard();
     document.getElementById('mbBlur')?.classList.toggle('on', safeOnly);
 
-    // ── Folders Logic ──────────────────────────────────────────────────────────
+    // ── Folders Logic ──
     function renderFolderSelect() {
         const s = getActiveState();
         let html = `<option value="all">📁 all folders</option><option disabled>──────────</option>`;
@@ -808,7 +808,7 @@
         }
     }
 
-    // ── Proxy check ────────────────────────────────────────────────────────────
+    // ── Proxy check ──
     async function checkProxy() {
       const banner = document.getElementById('proxybanner');
       try {
@@ -828,7 +828,7 @@
       }
     }
 
-    // ── Source switching ───────────────────────────────────────────────────────
+    // ── Source switching ──
     function setSource(s) {
       if (source === s) return;
       hideHoverCard();
@@ -842,7 +842,7 @@
       else if (showFavs) applySortFilter();
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
+    // ── Helpers ──
     function getProxyType() { return currentMode === 'artists' ? 'artist' : 'character'; }
     function thumbUrl(name, src) { return `${PROXY}/thumb?artist=${encodeURIComponent(name)}&source=${src}`; }
     function metaUrl(name, src)  { return `${PROXY}/thumb-meta?artist=${encodeURIComponent(name)}&source=${src}`; }
@@ -869,7 +869,7 @@
       return n.toString();
     }
 
-    // ── Load letter ────────────────────────────────────────────────────────────
+    // ── Load letter ──
     async function loadLetter(letter, keepFilter = false) {
       hideHoverCard();
       disableMixState();
@@ -964,7 +964,7 @@
       }
     }
 
-    // ── Sort & filter ──────────────────────────────────────────────────────────
+    // ── Sort & filter ──
     function applySortFilter() {
       let data;
       const s = getActiveState();
@@ -1028,7 +1028,7 @@
       else if (sortedData.length) renderGrid();
     }
 
-    // ── Prompt Mixer ───────────────────────────────────────────────────────────
+    // ── Prompt Mixer ──
     function toggleMix() {
         if (currentMode === 'characters') return;
         hideHoverCard();
@@ -1167,7 +1167,7 @@
         else if (showPreviews && !proxyOk) document.getElementById('imgprog').textContent = 'start proxy to load images';
     }
 
-    // ── Favorites ──────────────────────────────────────────────────────────────
+    // ── Favorites ──
     async function saveFavs() {
       const s = getActiveState();
       const key = currentMode === 'artists' ? 'booru-favs-v2' : 'booru-chars-favs-v2';
@@ -1245,7 +1245,7 @@
       if (mi) mi.setAttribute('fill', showFavs ? 'currentColor' : 'none');
     }
 
-    // ── Smart Copy to clipboard ────────────────────────────────────────────────
+    // ── Smart Copy to clipboard ──
     function handleCopy(btn, e) {
       e.preventDefault(); e.stopPropagation();
       const card = btn.closest('.artist-card');
@@ -1296,7 +1296,7 @@
       </svg>`;
     }
 
-    // ── Global search ──────────────────────────────────────────────────────────
+    // ── Global search ──
     let gsearchTimer = null, gsearchAC = null;
     function onGlobalSearch(v) {
       clearTimeout(gsearchTimer);
@@ -1370,7 +1370,7 @@
       if (!document.getElementById('gsearchWrap').contains(e.target)) closeGSearch();
     });
 
-    // ── Keyboard navigation ────────────────────────────────────────────────────
+    // ── Keyboard navigation ──
     function setupKeyboard() {
       document.addEventListener('keydown', e => {
         const tag = document.activeElement.tagName;
@@ -1402,7 +1402,7 @@
       });
     }
 
-    // ── Hover card ─────────────────────────────────────────────────────────────
+    // ── Hover card ──
     let hoverTimer = null, hoverTarget = null;
     const hoverCard = document.getElementById('hovercard');
 
@@ -1495,7 +1495,7 @@
       hoverCard.style.top  = y + 'px';
     }
 
-    // ── Render ─────────────────────────────────────────────────────────────────
+    // ── Render ──
     function renderGrid() {
       hideHoverCard();
       if (showMix) return;
@@ -1665,14 +1665,12 @@
           const el = document.getElementById('imgprog');
           const rem = toLoad.length - done;
           if (el) el.textContent = rem > 0 ? rem + ' left…' : '';
-
-          // Микро-пауза. Дает браузеру время подхватить тег <img> и начать скачивание картинки
-          // до того, как этот цикл заново займет соединение.
+            // Micro-pause. Gives the browser time to pick up the <img> tag and start downloading the image before this loop re-establishes the connection.
           await sleep(50);
         }
       }
 
-      // Строго 2 потока для лимитированных сайтов.
+      // Strictly two threads for limited-access sites.
       const activeConcurrency = (source === 'gelbooru' || source === 'e621' || showFavs || showMix) ? 2 : CONCURRENCY;
       await Promise.all(Array.from({ length: activeConcurrency }, worker));
       if (!sig.aborted) {
@@ -1681,7 +1679,7 @@
       }
     }
 
-    // ── Pagination ─────────────────────────────────────────────────────────────
+    // ── Pagination ──
     function goPageInput(input, totalPages) {
       const p = Math.max(0, Math.min(totalPages - 1, parseInt(input.value, 10) - 1));
       if (isNaN(p)) { input.value = curPage + 1; return; }
@@ -1696,7 +1694,7 @@
       window.scrollTo(0, 0);
     }
 
-    // ── Export ─────────────────────────────────────────────────────────────────
+    // ── Export ──
     function onMbSort(v) {
       sortMode = v;
       document.getElementById('sortsel').value = v;
