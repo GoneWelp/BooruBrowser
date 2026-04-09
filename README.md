@@ -198,7 +198,7 @@ Important note on API Rate Limits:
 
 - Gelbooru: Has a strict rate limit (100 tags per request). The proxy adds a mandatory 0.33s delay between requests.
 
-- e621: Has very aggressive anti-bot protection. The proxy enforces a strict 1.1s delay between requests to prevent your IP from being banned. The first time you load a popular letter on e621, it may take several minutes.
+- e621: Has very aggressive anti-bot protection. The proxy enforces a strict 2s delay between requests to prevent your IP from being banned. The first time you load a popular letter on e621, it may take several seconds. 
 
 To force a fresh fetch (to pick up newly added artists/characters), simply delete the relevant file from .tag_cache/ (e.g., e621_S.json or danbooru_char_A.json).
 ---
