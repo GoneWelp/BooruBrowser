@@ -23,7 +23,6 @@ A local browser tool for exploring artists on Danbooru, Gelbooru or e621 — wit
 | File                    | Purpose                                                     |
 |-------------------------|-------------------------------------------------------------|
 | `booru_browser.html`    | The main artist browser interface.                          |
-| `booru_characters.html` | The character browser interface.                            |
 | `booru_proxy.py`        | Local proxy server, must be running for everything to work. |
 | `auth.json`             | Your API credentials (see setup below).                     |
 
