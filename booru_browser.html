@@ -780,10 +780,16 @@
         if (showMix && currentMode === 'artists') renderMixer();
     }
 
-    async function moveFav(ckey, newFolder, e) {
+    async function moveFav(selectEl, e) {
         e.preventDefault(); e.stopPropagation();
+        const card = selectEl.closest('.artist-card');
+        const name = card.dataset.name;
+        const src = card.dataset.source;
+        const key = src + ':' + name;
+        const newFolder = selectEl.value;
+
         const s = getActiveState();
-        let fav = s.favorites.get(ckey);
+        let fav = s.favorites.get(key);
         if (fav) {
             fav.folder = newFolder;
             await saveFavs();
@@ -1006,11 +1012,10 @@
     function onSafeToggle() {
       safeOnly = document.getElementById('safemode').checked;
       document.querySelectorAll('.card-thumb img').forEach(img => {
-        const nameMatch = img.src.match(/artist=([^&]+)/);
-        const sourceMatch = img.src.match(/source=([^&]+)/);
-        if (!nameMatch || !sourceMatch) return;
-        const name = decodeURIComponent(nameMatch[1]);
-        const src = decodeURIComponent(sourceMatch[1]);
+        const card = img.closest('.artist-card');
+        if (!card) return;
+        const name = card.dataset.name;
+        const src = card.dataset.source;
         const pc = previewCache[currentMode + ':' + src + ':' + name];
         if (pc) img.style.filter = (safeOnly && !pc.safe) ? 'blur(10px)' : '';
       });
@@ -1046,7 +1051,10 @@
         }
     }
 
-    function copyPromptText(text, btn) {
+    function copyPromptText(btn, e) {
+        e.preventDefault(); e.stopPropagation();
+        const codeEl = btn.previousElementSibling;
+        const text = codeEl.textContent;
         const doCopy = () => {
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 return navigator.clipboard.writeText(text);
@@ -1109,7 +1117,7 @@
                 }
             }
 
-            return `<div class="artist-card" data-name="${a.name.replace(/"/g,'&quot;')}" data-source="${cardSource}">
+            return `<div class="artist-card" data-name="${a.name.replace(/"/g,'&quot;')}" data-source="${cardSource}" data-count="${a.count}">
                 <a href="${url}" target="_blank">
                     ${thumbHtml}
                     <div class="card-rank">#${i+1}</div>
@@ -1123,7 +1131,7 @@
                         <div class="src-badge">${cardSource}</div>
                     </div>
                 </div>
-                <button class="star-btn ${starred?'starred':''}" onclick="toggleFav('${a.name.replace(/'/g,"\\'")}', '${cardSource}', ${a.count}, event)">
+                <button class="star-btn ${starred?'starred':''}" onclick="toggleFav(this, event)" title="${starred?'remove from':'add to'} favorites">
                     <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 12s-5.5-3.5-5.5-7A3.5 3.5 0 0 1 7 3.5 3.5 3.5 0 0 1 12.5 5c0 3.5-5.5 7-5.5 7z" stroke="currentColor" stroke-width="1.3" fill="${starred?'currentColor':'none'}"/></svg>
                 </button>
             </div>`;
@@ -1141,11 +1149,11 @@
             <div class="prompt-boxes">
                 <div class="prompt-box">
                     <code>${prompt1}</code>
-                    <button class="btn" onclick="copyPromptText('${prompt1.replace(/'/g,"\\'")}', this)">copy</button>
+                    <button class="btn" onclick="copyPromptText(this, event)">copy</button>
                 </div>
                 <div class="prompt-box">
                     <code>${prompt2}</code>
-                    <button class="btn" onclick="copyPromptText('${prompt2.replace(/'/g,"\\'")}', this)">copy</button>
+                    <button class="btn" onclick="copyPromptText(this, event)">copy</button>
                 </div>
             </div>
             <div class="mix-grid">
@@ -1167,18 +1175,31 @@
       updateFavBtn();
     }
 
-    async function toggleFav(name, src, count, e) {
+    async function toggleFav(btn, e) {
       e.preventDefault(); e.stopPropagation();
+      const card = btn.closest('.artist-card');
+      const name = card.dataset.name;
+      const src = card.dataset.source;
+      const count = parseInt(card.dataset.count) || 0;
+
       const s = getActiveState();
       const key = src + ':' + name;
+
       if (s.favorites.has(key)) s.favorites.delete(key);
       else {
           let targetFolder = s.currentFolder === 'all' ? 'Default' : s.currentFolder;
-          s.favorites.set(key, { name: name, source: src, count: parseInt(count) || 0, folder: targetFolder });
+          s.favorites.set(key, { name: name, source: src, count: count, folder: targetFolder });
       }
+
+      // Update icon state instantly
+      const isStarred = s.favorites.has(key);
+      btn.classList.toggle('starred', isStarred);
+      const svgPath = btn.querySelector('path');
+      if (svgPath) svgPath.setAttribute('fill', isStarred ? 'currentColor' : 'none');
+      btn.setAttribute('title', isStarred ? 'remove from favorites' : 'add to favorites');
+
       await saveFavs();
-      const card = e.currentTarget.closest('.artist-card');
-      if (card) card.querySelector('.star-btn')?.classList.toggle('starred', s.favorites.has(key));
+
       if (showFavs && !showMix) applySortFilter();
     }
 
@@ -1225,13 +1246,16 @@
     }
 
     // ── Smart Copy to clipboard ────────────────────────────────────────────────
-    function handleCopy(name, cardSource, btn, e) {
+    function handleCopy(btn, e) {
       e.preventDefault(); e.stopPropagation();
+      const card = btn.closest('.artist-card');
+      const name = card.dataset.name;
+      const src = card.dataset.source;
 
       let copyText = name.replace(/_/g, ' ').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 
       if (currentMode === 'characters') {
-        const ckey = currentMode + ':' + cardSource + ':' + name;
+        const ckey = currentMode + ':' + src + ':' + name;
         const pc = previewCache[ckey];
         if (pc && pc.copyright && !(name.includes('(') && name.includes(')'))) {
             let copyr = pc.copyright.split(',')[0].trim().replace(/_/g, ' ');
@@ -1517,10 +1541,10 @@
         if (showFavs) {
             let favData = s.favorites.get(cardSource + ':' + a.name);
             let opts = s.folders.map(f => `<option value="${f.replace(/"/g, '&quot;')}" ${f === (favData?.folder || 'Default') ? 'selected' : ''}>${f}</option>`).join('');
-            folderSelectHtml = `<select class="card-folder-sel" onclick="event.preventDefault(); event.stopPropagation();" onchange="moveFav('${cardSource + ':' + a.name}', this.value, event)">${opts}</select>`;
+            folderSelectHtml = `<select class="card-folder-sel" onclick="event.preventDefault(); event.stopPropagation();" onchange="moveFav(this, event)">${opts}</select>`;
         }
 
-        html += `<div class="artist-card" data-name="${a.name.replace(/"/g,'&quot;')}" data-source="${cardSource}">
+        html += `<div class="artist-card" data-name="${a.name.replace(/"/g,'&quot;')}" data-source="${cardSource}" data-count="${a.count}">
           <a href="${url}" target="_blank">
             ${thumbHtml}
             <div class="card-rank">#${rank}</div>
@@ -1529,8 +1553,7 @@
             <a href="${url}" target="_blank" style="text-decoration:none; color:inherit; display:block;">
               <div class="card-name-row">
                 <div class="card-name">${a.name}</div>
-                <button class="copy-btn" onclick="handleCopy('${a.name.replace(/'/g,"\\'").replace(/"/g,"&quot;")}', '${cardSource}', this, event)"
-                  title="copy name">${copyIcon()}</button>
+                <button class="copy-btn" onclick="handleCopy(this, event)" title="copy name">${copyIcon()}</button>
               </div>
               <div class="card-count">${fmtCount(a.count)} <span>posts</span></div>
             </a>
@@ -1539,9 +1562,7 @@
               ${folderSelectHtml}
             </div>
           </div>
-          <button class="star-btn ${starred?'starred':''}"
-            onclick="toggleFav('${a.name.replace(/'/g,"\\'")}', '${cardSource}', ${a.count}, event)"
-            title="${starred?'remove from':'add to'} favorites">
+          <button class="star-btn ${starred?'starred':''}" onclick="toggleFav(this, event)" title="${starred?'remove from':'add to'} favorites">
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
               <path d="M7 12s-5.5-3.5-5.5-7A3.5 3.5 0 0 1 7 3.5 3.5 3.5 0 0 1 12.5 5c0 3.5-5.5 7-5.5 7z"
                 stroke="currentColor" stroke-width="1.3" fill="${starred?'currentColor':'none'}"/>
