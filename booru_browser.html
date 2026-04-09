@@ -3,26 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booru Artist Browser</title>
+    <title>Booru Browser</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <style>
         :root {
           --bg:#0e0e10; --bg2:#17171a; --bg3:#1f1f24; --bg4:#27272d;
           --line:rgba(255,255,255,0.07); --line2:rgba(255,255,255,0.13);
           --text:#f0f0f0; --text2:#888; --text3:#555;
-          --accent:#c8f04a; --danger:#ff5f5f;
-          --danger-bg:#2a1212; --ok-bg:#131f06;
+          --danger:#ff5f5f;
+          --danger-bg:#2a1212;
           --radius:12px; --radius-lg:20px;
+
+          /* Default (Artists) Theme */
+          --accent:#c8f04a;
+          --ok-bg:#131f06;
+          --hover-shadow:rgba(200,240,74,.08);
+          --hover-border:rgba(200,240,74,.25);
+          --btn-bg:rgba(200,240,74,.12);
+          --btn-border:rgba(200,240,74,.3);
         }
+
+        /* Characters Theme Override */
+        body.mode-characters {
+          --accent:#e028cc;
+          --ok-bg:#1f061b;
+          --hover-shadow:rgba(224,40,204,.08);
+          --hover-border:rgba(224,40,204,.25);
+          --btn-bg:rgba(224,40,204,.12);
+          --btn-border:rgba(224,40,204,.3);
+        }
+
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;position:relative;isolation:isolate}
-        body::before{content:'';position:fixed;inset:0;z-index:-2;background:
+
+        body::before{content:'';position:fixed;inset:0;z-index:-2; pointer-events:none; transition: background 0.4s ease;}
+
+        /* Artists Background */
+        body:not(.mode-characters)::before {
+          background:
           radial-gradient(ellipse 60% 50% at 15% 20%,rgba(200,240,74,.055) 0%,transparent 70%),
           radial-gradient(ellipse 50% 60% at 85% 75%,rgba(100,180,255,.04) 0%,transparent 70%),
           radial-gradient(ellipse 40% 40% at 50% 50%,rgba(200,240,74,.02) 0%,transparent 60%);
-          pointer-events:none}
+        }
+
+        /* Characters Background */
+        body.mode-characters::before {
+          background:
+          radial-gradient(ellipse 60% 50% at 15% 20%,rgba(224,40,204,.055) 0%,transparent 70%),
+          radial-gradient(ellipse 50% 60% at 85% 75%,rgba(100,180,255,.04) 0%,transparent 70%),
+          radial-gradient(ellipse 40% 40% at 50% 50%,rgba(224,40,204,.02) 0%,transparent 60%);
+        }
+
         body::after{content:'';position:fixed;inset:0;z-index:-1;
           background-image:radial-gradient(circle,rgba(255,255,255,.09) 1px,transparent 1px);
           background-size:28px 28px;
@@ -35,18 +69,25 @@
         .header{display:flex;align-items:center;gap:20px;margin-bottom:2rem;flex-wrap:wrap}
         .header h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
         .header h1 .slash{color:var(--accent);opacity:.5}
-        .header-sub{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3)}
+
+        .app-switch { display: flex; gap: 4px; background: var(--bg3); padding: 4px; border-radius: 10px; border: 1px solid var(--line2); margin-left: 16px; margin-right: auto; }
+        .app-switch button { background: none; border: none; cursor: pointer; padding: 5px 14px; border-radius: 8px; font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text2); transition: all .15s; }
+        .app-switch button.active { background: var(--accent); color: #0e0e10; font-weight: 600; text-shadow: none; }
+        body.mode-characters .app-switch button.active { color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+        .app-switch button:not(.active):hover { color: var(--text); background: var(--bg4); }
+
         .source-tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
         .source-tab{padding:7px 16px;border:1px solid var(--line2);border-radius:var(--radius);
           background:var(--bg2);color:var(--text2);cursor:pointer;
           font-family:'DM Mono',monospace;font-size:13px;transition:all .15s}
         .source-tab:hover{background:var(--bg3);color:var(--text)}
         .source-tab.active{background:var(--accent);color:#0e0e10;border-color:var(--accent);font-weight:600;}
+        body.mode-characters .source-tab.active { color:#ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
 
         /* Banners */
         .proxy-banner{font-family:'DM Mono',monospace;font-size:13px;padding:12px 18px;
           border-radius:var(--radius);margin-bottom:1.5rem;border:1px solid;line-height:1.5}
-        .proxy-ok{background:var(--ok-bg);color:var(--accent);border-color:rgba(200,240,74,.2)}
+        .proxy-ok{background:var(--ok-bg);color:var(--accent);border-color:var(--btn-border)}
         .proxy-err{background:var(--danger-bg);color:var(--danger);border-color:rgba(255,95,95,.2)}
 
         /* Letter grid */
@@ -57,8 +98,8 @@
           display:flex;align-items:center;justify-content:center;flex-direction:column;
           transition:all .15s;gap:2px}
         .letter-btn:hover{background:var(--bg3);color:var(--text)}
-        .letter-btn.active{background:var(--accent);color:#ffffff;border-color:var(--accent);font-weight:700;text-shadow: 0 1px 2px rgba(0,0,0,0.3);}
-        .letter-btn.active .lbadge{color:#ffffff;opacity:.9;text-shadow:none;}
+        .letter-btn.active{background:var(--accent);color:#0e0e10;border-color:var(--accent);font-weight:700;text-shadow: 0 1px 2px rgba(0,0,0,0.3);}
+        .letter-btn.active .lbadge{color:#0e0e10;opacity:.9;text-shadow:none;}
         .lbadge{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);line-height:1}
 
         /* Global search row */
@@ -111,7 +152,7 @@
           background:var(--bg2);color:var(--text2);cursor:pointer;font-family:'DM Mono',monospace;
           font-size:13px;transition:all .15s; display:flex; align-items:center; justify-content:center; gap:8px;}
         .btn:hover{background:var(--bg3);color:var(--text)}
-        .btn.active-btn{background:var(--accent);color:#ffffff;border-color:var(--accent);text-shadow: 0 1px 2px rgba(0,0,0,0.3);}
+        .btn.active-btn{background:var(--accent);color:#0e0e10;border-color:var(--accent);text-shadow: none;}
 
         /* Favs tab */
         .favs-toggle{display:flex;align-items:center;gap:8px;padding:7px 16px;
@@ -119,7 +160,7 @@
           color:var(--text2);cursor:pointer;font-family:'DM Mono',monospace;font-size:13px;
           transition:all .15s;user-select:none}
         .favs-toggle:hover{background:var(--bg3);color:var(--text)}
-        .favs-toggle.on{background:rgba(200,240,74,.12);color:var(--accent);border-color:rgba(200,240,74,.3)}
+        .favs-toggle.on{background:var(--btn-bg);color:var(--accent);border-color:var(--btn-border)}
         .favs-toggle svg{flex-shrink:0; width:15px; height:15px;}
 
         /* Mixer Tab */
@@ -128,7 +169,7 @@
         .mixer-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
         .mixer-top h2 { font-size: 22px; color: var(--text); font-weight: 700; font-family: 'Syne', sans-serif; }
         .mixer-top h2 span { color: var(--accent); }
-        .reroll-btn { padding: 10px 20px; background: rgba(200,240,74,.12); color: var(--accent); border: 1px solid rgba(200,240,74,.3); border-radius: var(--radius); font-family: 'DM Mono', monospace; font-size: 13px; cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: 8px; font-weight: 500;}
+        .reroll-btn { padding: 10px 20px; background: var(--btn-bg); color: var(--accent); border: 1px solid var(--btn-border); border-radius: var(--radius); font-family: 'DM Mono', monospace; font-size: 13px; cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: 8px; font-weight: 500;}
         .reroll-btn:hover { background: var(--accent); color: #0e0e10; }
         .prompt-boxes { display: flex; flex-direction: column; gap: 14px; margin-bottom: 2.5rem; }
         .prompt-box { background: var(--bg2); border: 1px solid var(--line2); padding: 14px 18px; border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center; gap: 14px; }
@@ -140,8 +181,8 @@
           gap:14px;margin-bottom:1.5rem}
         .artist-card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius-lg);
           overflow:hidden;transition:border-color .15s,transform .15s;position:relative}
-        .artist-card:hover{border-color:rgba(200,240,74,.25);transform:translateY(-3px);
-          box-shadow:0 12px 40px rgba(0,0,0,.4),0 0 0 1px rgba(200,240,74,.08)}
+        .artist-card:hover{border-color:var(--hover-border);transform:translateY(-3px);
+          box-shadow:0 12px 40px rgba(0,0,0,.4),0 0 0 1px var(--hover-shadow)}
         .artist-card a{text-decoration:none;color:inherit;display:block;overflow:hidden;
           border-radius:var(--radius-lg)}
         .card-body a { overflow: visible; border-radius: 0; }
@@ -239,7 +280,7 @@
           #wrap { padding: 0.5rem 0.5rem 7.5rem }
           .header { margin-bottom: 1rem; gap: 10px; flex-direction: column; align-items: center; }
           .header h1 { font-size: 20px; text-align: center; }
-          .header-sub { display: none }
+          .app-switch { margin-left: 0; width: 100%; justify-content: center; margin-top: 4px; margin-bottom: 8px;}
           .source-tabs { gap: 4px; justify-content: center; width: 100%; flex-wrap: wrap; }
           .source-tab { padding: 6px 8px; font-size: 10px }
           .letter-grid { gap: 3px; margin-bottom: 1rem }
@@ -293,7 +334,7 @@
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; flex-shrink: 0; transition: all .15s;
           }
-          .mb-icon-btn.on { background: rgba(200,240,74,.15); color: var(--accent); border-color: rgba(200,240,74,.3) }
+          .mb-icon-btn.on { background: var(--btn-bg); color: var(--accent); border-color: var(--btn-border) }
           .mb-icon-small { width: 28px !important; font-weight: bold; font-size: 16px; }
           .mb-sort {
             height: 36px; padding: 0 8px; border: 1px solid var(--line2); border-radius: 8px;
@@ -310,15 +351,8 @@
         @media (min-width: 601px) {
           .mobile-bar { display: none !important }
         }
-        .app-switch { display: flex; gap: 4px; background: var(--bg3); padding: 4px; border-radius: 10px; border: 1px solid var(--line2); margin-left: 16px; margin-right: auto; }
-        .app-switch a { padding: 5px 14px; border-radius: 8px; font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text2); text-decoration: none; transition: all .15s; }
-        .app-switch a.active { background: var(--accent); color: #0e0e10; font-weight: 600; }
-        .app-switch a:not(.active):hover { color: var(--text); background: var(--bg4); }
 
-        /* Немного поправим мобильную версию для свитчера */
-        @media (max-width: 600px) {
-          .app-switch { margin-left: 0; width: 100%; justify-content: center; margin-top: 4px; margin-bottom: 8px;}
-        }
+        .hidden-mode { display: none !important; }
     </style>
 </head>
 <body>
@@ -327,17 +361,17 @@
         <h1>booru <span class="slash">//</span> browser</h1>
 
         <div class="app-switch">
-            <a href="/" class="active">artists</a>
-            <a href="/characters">characters</a>
+            <button id="modeArtistsBtn" class="active" onclick="setMode('artists')">artists</button>
+            <button id="modeCharsBtn" onclick="setMode('characters')">characters</button>
         </div>
 
         <div class="source-tabs">
             <button class="source-tab" onclick="document.getElementById('importFile').click()" title="Import backup">import</button>
             <button class="source-tab" onclick="exportBackup()" title="Export backup">export</button>
             <div style="width: 1px; background: var(--line2); margin: 0 4px;"></div>
-            <button class="source-tab active" onclick="setSource('danbooru')">danbooru</button>
-            <button class="source-tab" onclick="setSource('gelbooru')">gelbooru</button>
-            <button class="source-tab" onclick="setSource('e621')">e621</button>
+            <button class="source-tab active" id="src-danbooru" onclick="setSource('danbooru')">danbooru</button>
+            <button class="source-tab" id="src-gelbooru" onclick="setSource('gelbooru')">gelbooru</button>
+            <button class="source-tab" id="src-e621" onclick="setSource('e621')">e621</button>
             <input type="file" id="importFile" style="display:none" accept=".json" onchange="importBackup(event)">
         </div>
     </div>
@@ -351,7 +385,7 @@
                 <path d="M9 9l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
             </svg>
             <input type="text" class="gsearch-input" id="gsearch"
-                   placeholder="search all artists across all letters…"
+                   placeholder="search across all letters…"
                    oninput="onGlobalSearch(this.value)"
                    onkeydown="onGlobalKey(event)"
                    autocomplete="off"/>
@@ -448,7 +482,7 @@
     const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
     const PG = 60, CONCURRENCY = 8;
 
-    let cache = {}, previewCache = {}, badgeCache = {};
+    let cache = {}, previewCache = {};
     let currentLetter = null, ac = null, imgAbort = null;
     let currentData = [], sortedData = [], filterText = '', curPage = 0;
     let safeOnly = true, showPreviews = true, proxyOk = false;
@@ -457,27 +491,84 @@
     let showFavs = false;
     let showMix = false;
 
-    // ── Favorites & Folders Initialization ─────────────────────────────────────
-    let folders = JSON.parse(localStorage.getItem('booru-folders')) || ['Default'];
-    let currentFolder = 'all';
+    // ── Storage Configuration ──────────────────────────────────────────────────
+    localforage.config({
+        name: 'BooruBrowser',
+        storeName: 'booru_data'
+    });
 
-    let favorites = new Map();
-    try {
-        let oldData = JSON.parse(localStorage.getItem('booru-favs') || 'null');
-        let v2Data = JSON.parse(localStorage.getItem('booru-favs-v2') || 'null');
+    let currentMode = 'artists';
 
-        if (v2Data) {
-            v2Data.forEach(f => {
-                if (!f.folder) f.folder = 'Default';
-                if (!folders.includes(f.folder)) folders.push(f.folder);
-                favorites.set(f.source + ':' + f.name, f);
-            });
-        } else if (oldData) {
-            oldData.forEach(name => favorites.set('danbooru:' + name, { name: name, source: 'danbooru', count: 0, folder: 'Default' }));
-            localStorage.setItem('booru-favs-v2', JSON.stringify(Array.from(favorites.values())));
+    const appState = {
+        artists: {
+            folders: ['Default'],
+            currentFolder: 'all',
+            favorites: new Map()
+        },
+        characters: {
+            folders: ['Default'],
+            currentFolder: 'all',
+            favorites: new Map()
         }
-        localStorage.setItem('booru-folders', JSON.stringify(folders));
-    } catch (e) { console.error("Favs load error:", e); }
+    };
+
+    async function initStorage() {
+        try {
+            // Artists migration and load
+            let aFolders = await localforage.getItem('booru-folders');
+            if (!aFolders) {
+                aFolders = JSON.parse(localStorage.getItem('booru-folders'));
+                if (aFolders) await localforage.setItem('booru-folders', aFolders);
+            }
+            if (aFolders) appState.artists.folders = aFolders;
+
+            let aV2Data = await localforage.getItem('booru-favs-v2');
+            if (!aV2Data) {
+                aV2Data = JSON.parse(localStorage.getItem('booru-favs-v2') || 'null');
+                if (!aV2Data) {
+                    let aOldData = JSON.parse(localStorage.getItem('booru-favs') || 'null');
+                    if (aOldData) aV2Data = aOldData.map(name => ({ name: name, source: 'danbooru', count: 0, folder: 'Default' }));
+                }
+                if (aV2Data) await localforage.setItem('booru-favs-v2', aV2Data);
+            }
+            if (aV2Data) {
+                aV2Data.forEach(f => {
+                    if (!f.folder) f.folder = 'Default';
+                    if (!appState.artists.folders.includes(f.folder)) appState.artists.folders.push(f.folder);
+                    appState.artists.favorites.set(f.source + ':' + f.name, f);
+                });
+            }
+
+            // Characters migration and load
+            let cFolders = await localforage.getItem('booru-chars-folders');
+            if (!cFolders) {
+                cFolders = JSON.parse(localStorage.getItem('booru-chars-folders'));
+                if (cFolders) await localforage.setItem('booru-chars-folders', cFolders);
+            }
+            if (cFolders) appState.characters.folders = cFolders;
+
+            let cV2Data = await localforage.getItem('booru-chars-favs-v2');
+            if (!cV2Data) {
+                cV2Data = JSON.parse(localStorage.getItem('booru-chars-favs-v2') || 'null');
+                if (cV2Data) await localforage.setItem('booru-chars-favs-v2', cV2Data);
+            }
+            if (cV2Data) {
+                cV2Data.forEach(f => {
+                    if (!f.folder) f.folder = 'Default';
+                    if (!appState.characters.folders.includes(f.folder)) appState.characters.folders.push(f.folder);
+                    appState.characters.favorites.set(f.source + ':' + f.name, f);
+                });
+            }
+
+            // Post-load interface updates
+            renderFolderSelect();
+            updateFolderBtns();
+            updateFavBtn();
+
+        } catch (e) { console.error("Storage init error:", e); }
+    }
+
+    function getActiveState() { return appState[currentMode]; }
 
     const PH = `<div class="ph"><svg width="32" height="32" viewBox="0 0 20 20" fill="none">
       <rect x="2" y="4" width="16" height="12" rx="2" stroke="#666" stroke-width="1.2"/>
@@ -486,16 +577,52 @@
     </svg></div>`;
     window.PH = PH;
 
+    // ── Mode Switcher ──────────────────────────────────────────────────────────
+    function setMode(mode) {
+        if (currentMode === mode) return;
+        hideHoverCard();
+        disableMixState();
+        currentMode = mode;
+
+        document.getElementById('modeArtistsBtn').classList.toggle('active', mode === 'artists');
+        document.getElementById('modeCharsBtn').classList.toggle('active', mode === 'characters');
+        document.body.classList.toggle('mode-characters', mode === 'characters');
+
+        const mixBtn = document.getElementById('mixToggle');
+        const mbMixBtn = document.getElementById('mbMix');
+        if (mode === 'characters') {
+            mixBtn.classList.add('hidden-mode');
+            if(mbMixBtn) mbMixBtn.classList.add('hidden-mode');
+        } else {
+            mixBtn.classList.remove('hidden-mode');
+            if(mbMixBtn) mbMixBtn.classList.remove('hidden-mode');
+        }
+
+        document.getElementById('gsearch').placeholder = mode === 'artists' ? 'search all artists across all letters…' : 'search all characters across all letters…';
+
+        currentData = []; sortedData = []; filterText = '';
+        document.getElementById('search').value = '';
+        if (document.getElementById('mbSearch')) document.getElementById('mbSearch').value = '';
+        curPage = 0;
+
+        renderFolderSelect();
+        updateFolderBtns();
+        updateFavBtn();
+
+        if (showFavs) applySortFilter();
+        else if (currentLetter) loadLetter(currentLetter);
+        else document.getElementById('twrap').innerHTML = '';
+    }
+
     // ── Backup System ──────────────────────────────────────────────────────────
     function exportBackup() {
-        const data = {
-            folders: folders,
-            favorites: Array.from(favorites.values())
-        };
+        const s = getActiveState();
+        const data = { folders: s.folders, favorites: Array.from(s.favorites.values()) };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `booru_backup_${new Date().toISOString().slice(0,10)}.json`;
+        const prefix = currentMode === 'artists' ? 'booru_backup' : 'booru_chars_backup';
+        a.download = `${prefix}_${new Date().toISOString().slice(0,10)}.json`;
         a.click();
     }
 
@@ -503,23 +630,25 @@
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
                 const data = JSON.parse(e.target.result);
                 if (data.folders && data.favorites) {
-                    if (!confirm("This will merge the imported artists and folders with your current ones. Continue?")) return;
+                    const itemName = currentMode === 'artists' ? 'artists' : 'characters';
+                    if (!confirm(`This will merge the imported ${itemName} and folders with your current ones. Continue?`)) return;
 
+                    const s = getActiveState();
                     data.folders.forEach(f => {
-                        if (!folders.includes(f)) folders.push(f);
+                        if (!s.folders.includes(f)) s.folders.push(f);
                     });
 
                     data.favorites.forEach(f => {
                         if (!f.folder) f.folder = 'Default';
-                        favorites.set(f.source + ':' + f.name, f);
+                        s.favorites.set(f.source + ':' + f.name, f);
                     });
 
-                    saveFolders();
-                    saveFavs();
+                    await saveFolders();
+                    await saveFavs();
                     alert("Backup imported successfully!");
                     if (showFavs || showMix) applySortFilter();
                 } else {
@@ -564,101 +693,101 @@
       lgrid.appendChild(b);
     });
 
-    renderFolderSelect();
-    updateFavBtn();
+    initStorage();
     checkProxy();
     setupKeyboard();
     setupHoverCard();
     document.getElementById('mbBlur')?.classList.toggle('on', safeOnly);
-    updateFolderBtns();
 
     // ── Folders Logic ──────────────────────────────────────────────────────────
     function renderFolderSelect() {
+        const s = getActiveState();
         let html = `<option value="all">📁 all folders</option><option disabled>──────────</option>`;
-        folders.forEach(f => {
+        s.folders.forEach(f => {
             html += `<option value="${f.replace(/"/g, '&quot;')}">📁 ${f}</option>`;
         });
         const sel = document.getElementById('folderSel');
         const mbSel = document.getElementById('mbFolderSel');
-        if (sel) { sel.innerHTML = html; sel.value = currentFolder; }
-        if (mbSel) { mbSel.innerHTML = html; mbSel.value = currentFolder; }
+        if (sel) { sel.innerHTML = html; sel.value = s.currentFolder; }
+        if (mbSel) { mbSel.innerHTML = html; mbSel.value = s.currentFolder; }
     }
 
-    function saveFolders() {
-        localStorage.setItem('booru-folders', JSON.stringify(folders));
+    async function saveFolders() {
+        const s = getActiveState();
+        const key = currentMode === 'artists' ? 'booru-folders' : 'booru-chars-folders';
+        await localforage.setItem(key, s.folders);
         renderFolderSelect();
         updateFolderBtns();
     }
 
     function updateFolderBtns() {
-        const showDel = (currentFolder !== 'all' && currentFolder !== 'Default');
+        const s = getActiveState();
+        const showDel = (s.currentFolder !== 'all' && s.currentFolder !== 'Default');
         const d1 = document.getElementById('delFolderBtn');
         const d2 = document.getElementById('mbDelFolderBtn');
         if (d1) d1.style.display = showDel ? 'inline-block' : 'none';
         if (d2) d2.style.display = showDel ? 'flex' : 'none';
     }
 
-    function createNewFolder() {
+    async function createNewFolder() {
+        const s = getActiveState();
         let name = prompt("Enter new folder name:");
         if (!name) return;
         name = name.trim();
-        if (!name || folders.includes(name)) return;
-        folders.push(name);
-        saveFolders();
-        currentFolder = name;
-        renderFolderSelect();
-        updateFolderBtns();
+        if (!name || s.folders.includes(name)) return;
+        s.folders.push(name);
+        s.currentFolder = name;
+        await saveFolders();
         if (showFavs || showMix) applySortFilter();
     }
 
-    function deleteCurrentFolder() {
-        if (currentFolder === 'all' || currentFolder === 'Default') return;
-        if (!confirm(`Delete folder "${currentFolder}"?\n\nArtists inside will NOT be deleted, they will be moved back to the "Default" folder.`)) return;
+    async function deleteCurrentFolder() {
+        const s = getActiveState();
+        if (s.currentFolder === 'all' || s.currentFolder === 'Default') return;
+        const itemName = currentMode === 'artists' ? 'Artists' : 'Characters';
+        if (!confirm(`Delete folder "${s.currentFolder}"?\n\n${itemName} inside will NOT be deleted, they will be moved back to the "Default" folder.`)) return;
 
-        favorites.forEach((fav, key) => {
-            if (fav.folder === currentFolder) {
-                fav.folder = 'Default';
-            }
+        s.favorites.forEach((fav) => {
+            if (fav.folder === s.currentFolder) fav.folder = 'Default';
         });
-        saveFavs();
+        await saveFavs();
 
-        folders = folders.filter(f => f !== currentFolder);
-        saveFolders();
-
-        currentFolder = 'all';
-        document.getElementById('folderSel').value = 'all';
-        if (document.getElementById('mbFolderSel')) document.getElementById('mbFolderSel').value = 'all';
-        updateFolderBtns();
+        s.folders = s.folders.filter(f => f !== s.currentFolder);
+        s.currentFolder = 'all';
+        await saveFolders();
 
         curPage = 0;
         if (showFavs || showMix) applySortFilter();
     }
 
     function onFolderChange() {
-        currentFolder = document.getElementById('folderSel').value;
-        if (document.getElementById('mbFolderSel')) document.getElementById('mbFolderSel').value = currentFolder;
+        const s = getActiveState();
+        s.currentFolder = document.getElementById('folderSel').value;
+        if (document.getElementById('mbFolderSel')) document.getElementById('mbFolderSel').value = s.currentFolder;
         updateFolderBtns();
         curPage = 0;
         if (showFavs || showMix) applySortFilter();
-        if (showMix) renderMixer();
+        if (showMix && currentMode === 'artists') renderMixer();
     }
 
     function onMbFolderChange() {
-        currentFolder = document.getElementById('mbFolderSel').value;
-        document.getElementById('folderSel').value = currentFolder;
+        const s = getActiveState();
+        s.currentFolder = document.getElementById('mbFolderSel').value;
+        document.getElementById('folderSel').value = s.currentFolder;
         updateFolderBtns();
         curPage = 0;
         if (showFavs || showMix) applySortFilter();
-        if (showMix) renderMixer();
+        if (showMix && currentMode === 'artists') renderMixer();
     }
 
-    function moveFav(ckey, newFolder, e) {
+    async function moveFav(ckey, newFolder, e) {
         e.preventDefault(); e.stopPropagation();
-        let fav = favorites.get(ckey);
+        const s = getActiveState();
+        let fav = s.favorites.get(ckey);
         if (fav) {
             fav.folder = newFolder;
-            saveFavs();
-            if (showFavs && currentFolder !== 'all') {
+            await saveFavs();
+            if (showFavs && s.currentFolder !== 'all') {
                 hideHoverCard();
                 applySortFilter();
             }
@@ -700,7 +829,7 @@
       disableMixState();
       source = s;
       document.querySelectorAll('.source-tab').forEach(t =>
-        t.classList.toggle('active', t.textContent.trim() === s));
+        t.classList.toggle('active', t.id === 'src-' + s));
       currentData = []; sortedData = []; filterText = '';
       document.getElementById('search').value = '';
       if (currentLetter && !showFavs) loadLetter(currentLetter);
@@ -708,6 +837,7 @@
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+    function getProxyType() { return currentMode === 'artists' ? 'artist' : 'character'; }
     function thumbUrl(name, src) { return `${PROXY}/thumb?artist=${encodeURIComponent(name)}&source=${src}`; }
     function metaUrl(name, src)  { return `${PROXY}/thumb-meta?artist=${encodeURIComponent(name)}&source=${src}`; }
     function hoverUrl(name, src) { return `${PROXY}/hover?artist=${encodeURIComponent(name)}&source=${src}`; }
@@ -750,7 +880,9 @@
       curPage = 0;
       showFavs = false; updateFavBtn();
 
-      const key = source + '-' + letter;
+      const typeParam = getProxyType();
+      const key = currentMode + ':' + source + '-' + letter;
+
       if (cache[key]) { currentData = cache[key]; applySortFilter(); return; }
 
       ac = new AbortController(); const sig = ac.signal;
@@ -764,16 +896,16 @@
         let results = [];
 
         // 1. Fast cache reading
-        const cacheRes = await fetch(`${PROXY}/tags?letter=${encodeURIComponent(letter)}&source=${source}&page=1`, { signal: sig });
+        const cacheRes = await fetch(`${PROXY}/tags?letter=${encodeURIComponent(letter)}&source=${source}&page=1&type=${typeParam}`, { signal: sig });
         if (cacheRes.ok) {
             const cacheData = await cacheRes.json();
-            // Если прокси отдал кэш и там есть данные — берем их
             if (cacheData.results && cacheData.results.length > 0 && cacheData.has_more === false) {
                 results = cacheData.results;
             }
         }
 
-        // 2. If there's no cache, collecting it manually
+        // 2. Fetch if no cache
+        const itemName = currentMode === 'artists' ? 'artists' : 'characters';
         if (results.length === 0) {
             if (letter === '#') {
                 const digits = ['0','1','2','3','4','5','6','7','8','9'];
@@ -781,7 +913,7 @@
                     let page = 1;
                     setStatus(`loading digit ${digits[i]}…`, 10 + (i * 9));
                     while (true) {
-                        const url = `${PROXY}/tags?letter=${digits[i]}&source=${source}&page=${page}`;
+                        const url = `${PROXY}/tags?letter=${digits[i]}&source=${source}&page=${page}&type=${typeParam}`;
                         const res = await fetch(url, { signal: sig });
                         if (!res.ok) throw new Error('proxy error ' + res.status);
                         const data = await res.json();
@@ -790,13 +922,12 @@
                         page++; await sleep(200);
                     }
                 }
-                // Sorting numbers in descending order
                 results.sort((a, b) => b.count - a.count);
             } else {
                 let page = 1;
                 while (true) {
-                    setStatus(`batch ${page} — ${results.length} artists…`, Math.min(85, 5 + page * 8));
-                    const url = `${PROXY}/tags?letter=${letter}&source=${source}&page=${page}`;
+                    setStatus(`batch ${page} — ${results.length} ${itemName}…`, Math.min(85, 5 + page * 8));
+                    const url = `${PROXY}/tags?letter=${letter}&source=${source}&page=${page}&type=${typeParam}`;
                     const res = await fetch(url, { signal: sig });
                     if (!res.ok) throw new Error('proxy error ' + res.status);
                     const data = await res.json();
@@ -806,8 +937,7 @@
                 }
             }
 
-            // 3. Saving data to cache folder
-            fetch(`${PROXY}/cache-save?source=${source}&letter=${encodeURIComponent(letter)}`, {
+            fetch(`${PROXY}/cache-save?source=${source}&letter=${encodeURIComponent(letter)}&type=${typeParam}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(results)
@@ -815,8 +945,10 @@
         }
 
         cache[key] = results; currentData = results;
+
         const badge = document.getElementById('badge-' + letter);
         if (badge) badge.textContent = fmtCount(results.length);
+
         setStatus('', 100);
         applySortFilter();
 
@@ -829,10 +961,11 @@
     // ── Sort & filter ──────────────────────────────────────────────────────────
     function applySortFilter() {
       let data;
+      const s = getActiveState();
       if (showFavs || showMix) {
-        data = Array.from(favorites.values());
-        if (currentFolder !== 'all') {
-            data = data.filter(a => a.folder === currentFolder);
+        data = Array.from(s.favorites.values());
+        if (s.currentFolder !== 'all') {
+            data = data.filter(a => a.folder === s.currentFolder);
         }
       } else {
         data = currentData;
@@ -864,10 +997,12 @@
       if (m && document.activeElement !== m) m.value = v;
       applySortFilter();
     }
+
     function onSort() {
       sortMode = document.getElementById('sortsel').value;
       if (!showMix) { curPage = 0; applySortFilter(); }
     }
+
     function onSafeToggle() {
       safeOnly = document.getElementById('safemode').checked;
       document.querySelectorAll('.card-thumb img').forEach(img => {
@@ -876,19 +1011,21 @@
         if (!nameMatch || !sourceMatch) return;
         const name = decodeURIComponent(nameMatch[1]);
         const src = decodeURIComponent(sourceMatch[1]);
-        const pc = previewCache[src + ':' + name];
+        const pc = previewCache[currentMode + ':' + src + ':' + name];
         if (pc) img.style.filter = (safeOnly && !pc.safe) ? 'blur(10px)' : '';
       });
     }
+
     function onPrevToggle() {
       showPreviews = document.getElementById('showprev').checked;
       if (imgAbort) { imgAbort.abort(); imgAbort = null; }
-      if (showMix) renderMixer();
+      if (showMix && currentMode === 'artists') renderMixer();
       else if (sortedData.length) renderGrid();
     }
 
     // ── Prompt Mixer ───────────────────────────────────────────────────────────
     function toggleMix() {
+        if (currentMode === 'characters') return;
         hideHoverCard();
         showMix = !showMix;
         document.getElementById('mixToggle').classList.toggle('active-btn', showMix);
@@ -930,11 +1067,12 @@
     }
 
     function renderMixer() {
-        if (!showMix) return;
+        if (!showMix || currentMode === 'characters') return;
         const favArray = sortedData;
+        const s = getActiveState();
 
         if (favArray.length < 2) {
-            let folderName = currentFolder === 'all' ? 'favorites' : `the "${currentFolder}" folder`;
+            let folderName = s.currentFolder === 'all' ? 'favorites' : `the "${s.currentFolder}" folder`;
             document.getElementById('twrap').innerHTML = `<p class="empty">not enough artists in ${folderName} to mix. please star at least 2.</p>`;
             return;
         }
@@ -957,9 +1095,9 @@
         let cardsHtml = artistsToRender.map((a, i) => {
             const cardSource = a.source || source;
             const url  = artistPageUrl(a.name, cardSource);
-            const ckey = cardSource + ':' + a.name;
+            const ckey = currentMode + ':' + cardSource + ':' + a.name;
             const pc   = previewCache[ckey];
-            const starred = favorites.has(ckey);
+            const starred = s.favorites.has(cardSource + ':' + a.name);
 
             let thumbHtml = '';
             if (showPreviews) {
@@ -1022,23 +1160,28 @@
     }
 
     // ── Favorites ──────────────────────────────────────────────────────────────
-    function saveFavs() {
-      localStorage.setItem('booru-favs-v2', JSON.stringify(Array.from(favorites.values())));
+    async function saveFavs() {
+      const s = getActiveState();
+      const key = currentMode === 'artists' ? 'booru-favs-v2' : 'booru-chars-favs-v2';
+      await localforage.setItem(key, Array.from(s.favorites.values()));
       updateFavBtn();
     }
-    function toggleFav(name, src, count, e) {
+
+    async function toggleFav(name, src, count, e) {
       e.preventDefault(); e.stopPropagation();
+      const s = getActiveState();
       const key = src + ':' + name;
-      if (favorites.has(key)) favorites.delete(key);
+      if (s.favorites.has(key)) s.favorites.delete(key);
       else {
-          let targetFolder = currentFolder === 'all' ? 'Default' : currentFolder;
-          favorites.set(key, { name: name, source: src, count: parseInt(count) || 0, folder: targetFolder });
+          let targetFolder = s.currentFolder === 'all' ? 'Default' : s.currentFolder;
+          s.favorites.set(key, { name: name, source: src, count: parseInt(count) || 0, folder: targetFolder });
       }
-      saveFavs();
+      await saveFavs();
       const card = e.currentTarget.closest('.artist-card');
-      if (card) card.querySelector('.star-btn')?.classList.toggle('starred', favorites.has(key));
+      if (card) card.querySelector('.star-btn')?.classList.toggle('starred', s.favorites.has(key));
       if (showFavs && !showMix) applySortFilter();
     }
+
     function toggleFavsView() {
       hideHoverCard();
       disableMixState();
@@ -1046,8 +1189,12 @@
       curPage = 0; filterText = '';
       document.getElementById('search').value = '';
       updateFavBtn();
-      if (showFavs && favorites.size === 0) {
-        document.getElementById('twrap').innerHTML = '<p class="empty">no favorites yet — star artists to add them</p>';
+
+      const s = getActiveState();
+      const itemName = currentMode === 'artists' ? 'artists' : 'characters';
+
+      if (showFavs && s.favorites.size === 0) {
+        document.getElementById('twrap').innerHTML = `<p class="empty">no favorites yet — star ${itemName} to add them</p>`;
         document.getElementById('stats').textContent = '';
         setActive(null);
         return;
@@ -1057,14 +1204,16 @@
 
       applySortFilter();
     }
+
     function updateFavBtn() {
       const btn = document.getElementById('favsToggle');
       const cnt = document.getElementById('favCount');
       btn.classList.toggle('on', showFavs);
 
-      let visibleCount = favorites.size;
-      if (showFavs && currentFolder !== 'all') {
-          visibleCount = Array.from(favorites.values()).filter(f => f.folder === currentFolder).length;
+      const s = getActiveState();
+      let visibleCount = s.favorites.size;
+      if (showFavs && s.currentFolder !== 'all') {
+          visibleCount = Array.from(s.favorites.values()).filter(f => f.folder === s.currentFolder).length;
       }
       cnt.textContent = visibleCount > 0 ? `(${visibleCount})` : '';
 
@@ -1075,11 +1224,22 @@
       if (mi) mi.setAttribute('fill', showFavs ? 'currentColor' : 'none');
     }
 
-// ── Copy to clipboard ──────────────────────────────────────────────────────
-    function copyName(name, btn, e) {
+    // ── Smart Copy to clipboard ────────────────────────────────────────────────
+    function handleCopy(name, cardSource, btn, e) {
       e.preventDefault(); e.stopPropagation();
 
       let copyText = name.replace(/_/g, ' ').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+
+      if (currentMode === 'characters') {
+        const ckey = currentMode + ':' + cardSource + ':' + name;
+        const pc = previewCache[ckey];
+        if (pc && pc.copyright && !(name.includes('(') && name.includes(')'))) {
+            let copyr = pc.copyright.split(',')[0].trim().replace(/_/g, ' ');
+            if (copyr && copyr !== "original") {
+                copyText = `${copyText}, ${copyr}`;
+            }
+        }
+      }
 
       const doCopy = () => {
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1092,6 +1252,7 @@
         document.body.removeChild(inp);
         return Promise.resolve();
       };
+
       doCopy().then(() => {
         btn.classList.add('copied');
         btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -1103,6 +1264,7 @@
         }, 1500);
       }).catch(() => {});
     }
+
     function copyIcon() {
       return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
         <rect x="4" y="1" width="7" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
@@ -1118,18 +1280,18 @@
       if (!q) { closeGSearch(); return; }
       gsearchTimer = setTimeout(() => runGlobalSearch(q), 350);
     }
+
     async function runGlobalSearch(q) {
       if (gsearchAC) gsearchAC.abort();
       gsearchAC = new AbortController();
       const sig = gsearchAC.signal;
       try {
-        const proxyUrl = `${PROXY}/tags?letter=${encodeURIComponent(q[0])}&source=${source}`;
+        const proxyUrl = `${PROXY}/search?q=${encodeURIComponent(q)}&source=${source}&type=${getProxyType()}`;
         const res = await fetch(proxyUrl, { signal: sig });
 
         if (!res.ok) return;
         const d = await res.json();
-        const results = (d.results || []).filter(t => t.name.includes(q.toLowerCase())).slice(0, 20);
-        showGSearchResults(results, q);
+        showGSearchResults(d.results || [], q);
       } catch (e) { if (e.name !== 'AbortError') closeGSearch(); }
     }
 
@@ -1153,7 +1315,7 @@
       let letter = name[0].toUpperCase();
       if (!/[A-Z]/.test(letter)) letter = '#';
 
-      const key = source + '-' + letter;
+      const key = currentMode + ':' + source + '-' + letter;
       if (cache[key]) {
         currentLetter = letter; setActive(letter);
         currentData = cache[key];
@@ -1175,10 +1337,11 @@
     function closeGSearch() {
       document.getElementById('gsearchResults').classList.remove('open');
     }
+
     function onGlobalKey(e) {
-      const box = document.getElementById('gsearchResults');
       if (e.key === 'Escape') { closeGSearch(); document.getElementById('gsearch').blur(); }
     }
+
     document.addEventListener('click', e => {
       if (!document.getElementById('gsearchWrap').contains(e.target)) closeGSearch();
     });
@@ -1246,14 +1409,21 @@
     async function showHover(card, name, cardSource) {
       document.getElementById('hcName').textContent = name;
 
-      let artistData = sortedData.find(a => a.name === name && (a.source === cardSource || (!a.source && source === cardSource)));
-      if (!artistData && showMix) {
-          const key = cardSource + ':' + name;
-          artistData = favorites.get(key);
+      const s = getActiveState();
+      let itemData = sortedData.find(a => a.name === name && (a.source === cardSource || (!a.source && source === cardSource)));
+      if (!itemData && showMix) {
+          itemData = s.favorites.get(cardSource + ':' + name);
       }
 
-      document.getElementById('hcMeta').innerHTML = artistData
-        ? `<span>${fmtCount(artistData.count)}</span> posts · ${cardSource}` : cardSource;
+      const pc = previewCache[currentMode + ':' + cardSource + ':' + name];
+      let copyText = '';
+      if (currentMode === 'characters' && pc && pc.copyright) {
+         copyText = `<br><span style="color:var(--text2)">${pc.copyright.replace(/_/g, ' ')}</span>`;
+      }
+
+      document.getElementById('hcMeta').innerHTML = itemData
+        ? `<span>${fmtCount(itemData.count)}</span> posts · ${cardSource}${copyText}` : cardSource;
+
       document.getElementById('hcGrid').innerHTML =
         '<div class="hc-img"></div><div class="hc-img"></div>' +
         '<div class="hc-img"></div><div class="hc-img"></div>';
@@ -1267,7 +1437,6 @@
         if (!res.ok) return;
         const urls = await res.json();
         const cells = document.getElementById('hcGrid').children;
-        const pc = previewCache[cardSource + ':' + name];
         const needsBlur = safeOnly && pc && !pc.safe;
         urls.slice(0, 4).forEach((url, i) => {
           if (!cells[i]) return;
@@ -1307,25 +1476,28 @@
       hideHoverCard();
       if (showMix) return;
       const total = sortedData.length;
+      const itemName = currentMode === 'artists' ? 'artists' : 'characters';
+
       document.getElementById('stats').textContent = total > 0
-        ? total.toLocaleString() + ' artists' + (showFavs ? ' ★' : '') : 'no results';
+        ? total.toLocaleString() + ` ${itemName}` + (showFavs ? ' ★' : '') : 'no results';
       document.getElementById('expbtn').style.display = total > 0 ? 'inline-block' : 'none';
       document.getElementById('imgprog').textContent = '';
       if (total === 0) {
-        document.getElementById('twrap').innerHTML = '<p class="empty">no artists found</p>'; return;
+        document.getElementById('twrap').innerHTML = `<p class="empty">no ${itemName} found</p>`; return;
       }
 
       const start = curPage * PG, end = Math.min(start + PG, total);
       const slice = sortedData.slice(start, end);
+      const s = getActiveState();
 
       let html = '<div class="artist-grid">';
       slice.forEach((a, i) => {
         const rank = start + i + 1;
         const cardSource = a.source || source;
         const url  = artistPageUrl(a.name, cardSource);
-        const ckey = cardSource + ':' + a.name;
+        const ckey = currentMode + ':' + cardSource + ':' + a.name;
         const pc   = previewCache[ckey];
-        const starred = favorites.has(ckey);
+        const starred = s.favorites.has(cardSource + ':' + a.name);
 
         let thumbHtml = '';
         if (showPreviews) {
@@ -1341,12 +1513,11 @@
           }
         }
 
-        // Folder select inside card (only in Favs view)
         let folderSelectHtml = '';
         if (showFavs) {
-            let favData = favorites.get(ckey);
-            let opts = folders.map(f => `<option value="${f.replace(/"/g, '&quot;')}" ${f === (favData?.folder || 'Default') ? 'selected' : ''}>${f}</option>`).join('');
-            folderSelectHtml = `<select class="card-folder-sel" onclick="event.preventDefault(); event.stopPropagation();" onchange="moveFav('${ckey}', this.value, event)">${opts}</select>`;
+            let favData = s.favorites.get(cardSource + ':' + a.name);
+            let opts = s.folders.map(f => `<option value="${f.replace(/"/g, '&quot;')}" ${f === (favData?.folder || 'Default') ? 'selected' : ''}>${f}</option>`).join('');
+            folderSelectHtml = `<select class="card-folder-sel" onclick="event.preventDefault(); event.stopPropagation();" onchange="moveFav('${cardSource + ':' + a.name}', this.value, event)">${opts}</select>`;
         }
 
         html += `<div class="artist-card" data-name="${a.name.replace(/"/g,'&quot;')}" data-source="${cardSource}">
@@ -1358,7 +1529,7 @@
             <a href="${url}" target="_blank" style="text-decoration:none; color:inherit; display:block;">
               <div class="card-name-row">
                 <div class="card-name">${a.name}</div>
-                <button class="copy-btn" onclick="copyName('${a.name.replace(/'/g,"\\'")}',this,event)"
+                <button class="copy-btn" onclick="handleCopy('${a.name.replace(/'/g,"\\'").replace(/"/g,"&quot;")}', '${cardSource}', this, event)"
                   title="copy name">${copyIcon()}</button>
               </div>
               <div class="card-count">${fmtCount(a.count)} <span>posts</span></div>
@@ -1393,24 +1564,24 @@
       }
 
       document.getElementById('twrap').innerHTML = html;
-      updateFavBtn(); // update counts dynamically based on filtered view
+      updateFavBtn();
       if (showPreviews && proxyOk) loadPreviews(slice);
       else if (showPreviews && !proxyOk) document.getElementById('imgprog').textContent = 'start proxy to load images';
     }
 
     // ── Load previews ──────────────────────────────────────────────────────────
-    async function loadPreviews(artists) {
+    async function loadPreviews(itemsToLoad) {
       if (imgAbort) imgAbort.abort();
       const controller = new AbortController();
       imgAbort = controller;
       const sig = controller.signal;
 
-      const idxMap = new Map(artists.map((a, i) => [a.name, i]));
+      const idxMap = new Map(itemsToLoad.map((a, i) => [a.name, i]));
 
-      for (const a of artists) {
+      for (const a of itemsToLoad) {
         const idx = idxMap.get(a.name);
         const cardSource = a.source || source;
-        const ckey = cardSource + ':' + a.name;
+        const ckey = currentMode + ':' + cardSource + ':' + a.name;
         const pc = previewCache[ckey];
         if (pc !== undefined && pc !== null) {
           const cell = document.getElementById('th-' + idx);
@@ -1422,9 +1593,9 @@
         }
       }
 
-      const toLoad = artists.filter(a => {
+      const toLoad = itemsToLoad.filter(a => {
         const cardSource = a.source || source;
-        return !previewCache.hasOwnProperty(cardSource + ':' + a.name);
+        return !previewCache.hasOwnProperty(currentMode + ':' + cardSource + ':' + a.name);
       });
       if (!toLoad.length) return;
 
@@ -1435,14 +1606,20 @@
         while (queue.length) {
           if (sig.aborted) return;
           const { name, idx, cardSource } = queue.shift();
-          const ckey = cardSource + ':' + name;
+          const ckey = currentMode + ':' + cardSource + ':' + name;
 
           let attempts = 2;
           let pc = null;
           while (attempts > 0) {
             try {
               const res = await fetch(metaUrl(name, cardSource), { signal: sig });
-              pc = res.ok ? await res.json().then(d => d.url ? { safe: !!d.safe } : null) : null;
+              if (res.ok) {
+                  const d = await res.json();
+                  if (d.url) {
+                      pc = { safe: !!d.safe };
+                      if (d.copyright) pc.copyright = d.copyright;
+                  }
+              }
               break;
             } catch (e) {
               if (e.name === 'AbortError') return;
@@ -1467,9 +1644,14 @@
           const el = document.getElementById('imgprog');
           const rem = toLoad.length - done;
           if (el) el.textContent = rem > 0 ? rem + ' left…' : '';
+
+          // Микро-пауза. Дает браузеру время подхватить тег <img> и начать скачивание картинки
+          // до того, как этот цикл заново займет соединение.
+          await sleep(50);
         }
       }
 
+      // Строго 2 потока для лимитированных сайтов.
       const activeConcurrency = (source === 'gelbooru' || source === 'e621' || showFavs || showMix) ? 2 : CONCURRENCY;
       await Promise.all(Array.from({ length: activeConcurrency }, worker));
       if (!sig.aborted) {
@@ -1484,6 +1666,7 @@
       if (isNaN(p)) { input.value = curPage + 1; return; }
       input.value = p + 1; goPage(p);
     }
+
     function goPage(p) {
       curPage = p;
       if (imgAbort) { imgAbort.abort(); imgAbort = null; }
@@ -1507,14 +1690,16 @@
     }
 
     function exportCSV() {
-      let csv = 'rank,artist,posts,source,folder\n';
+      const s = getActiveState();
+      const itemName = currentMode === 'artists' ? 'artist' : 'character';
+      let csv = `rank,${itemName},posts,source,folder\n`;
       sortedData.forEach((a, i) => {
           let folder = a.folder || 'Default';
           csv += `${i+1},"${a.name}",${a.count},${a.source || source},"${folder}"\n`;
       });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-      let filename = showFavs ? `favs_${currentFolder.replace(/\W+/g, '_')}.csv` : `${source}_artists_${currentLetter}.csv`;
+      let filename = showFavs ? `favs_${itemName}s_${s.currentFolder.replace(/\W+/g, '_')}.csv` : `${source}_${itemName}s_${currentLetter}.csv`;
       a.download = filename;
       a.click();
     }
