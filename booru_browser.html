@@ -1111,19 +1111,20 @@
             if (showPreviews) {
                 if (pc !== undefined && pc !== null) {
                     const blur = safeOnly && !pc.safe ? 'filter:blur(10px);' : '';
-                    thumbHtml = `<div class="card-thumb"><img src="${thumbUrl(a.name, cardSource)}" style="${blur}" loading="lazy" onload="this.classList.add('loaded')" onerror="window.retryImage(this)"></div>`;
+                    const srcUrl = thumbUrl(a.name, cardSource);
+                    thumbHtml = `<div class="card-thumb"><img src="${srcUrl}" referrerpolicy="no-referrer" style="${blur}" loading="lazy" onload="this.classList.add('loaded')" onerror="window.retryImage(this)"></div>`;
                 } else {
                     thumbHtml = `<div class="card-thumb" id="th-${i}">${PH}</div>`;
                 }
             }
 
             return `<div class="artist-card" data-name="${a.name.replace(/"/g,'&quot;')}" data-source="${cardSource}" data-count="${a.count}">
-                <a href="${url}" target="_blank">
+                <a href="#" onclick="window.open(artistPageUrl('${a.name.replace(/'/g,"\\'").replace(/"/g,"&quot;")}', '${cardSource}'), '_blank'); return false;">
                     ${thumbHtml}
                     <div class="card-rank">#${i+1}</div>
                 </a>
                 <div class="card-body">
-                    <a href="${url}" target="_blank" style="text-decoration:none; color:inherit; display:block;">
+                    <a href="#" onclick="window.open(artistPageUrl('${a.name.replace(/'/g,"\\'").replace(/"/g,"&quot;")}', '${cardSource}'), '_blank'); return false;" style="text-decoration:none; color:inherit; display:block;">
                         <div class="card-name-row"><div class="card-name">${a.name}</div></div>
                         <div class="card-count">${fmtCount(a.count)} <span>posts</span></div>
                     </a>
@@ -1467,7 +1468,8 @@
           const img = document.createElement('img');
           img.onload = () => img.classList.add('loaded');
           if (needsBlur) img.style.filter = 'blur(12px)';
-          img.src = `${PROXY}/proxy?url=${encodeURIComponent(url)}`;
+          img.src = url.startsWith('/') ? PROXY + url : url;
+          img.referrerPolicy = 'no-referrer';
           cells[i].appendChild(img);
         });
       } catch {}
@@ -1527,8 +1529,9 @@
         if (showPreviews) {
           if (pc !== undefined && pc !== null) {
             const blur = safeOnly && !pc.safe ? 'filter:blur(10px);' : '';
+            const srcUrl = thumbUrl(a.name, cardSource);
             thumbHtml = `<div class="card-thumb">
-              <img src="${thumbUrl(a.name, cardSource)}" style="${blur}" loading="lazy"
+              <img src="${srcUrl}" referrerpolicy="no-referrer" style="${blur}" loading="lazy"
                 onload="this.classList.add('loaded')"
                 onerror="window.retryImage(this)">
             </div>`;
@@ -1545,12 +1548,12 @@
         }
 
         html += `<div class="artist-card" data-name="${a.name.replace(/"/g,'&quot;')}" data-source="${cardSource}" data-count="${a.count}">
-          <a href="${url}" target="_blank">
+          <a href="#" onclick="window.open(artistPageUrl('${a.name.replace(/'/g,"\\'").replace(/"/g,"&quot;")}', '${cardSource}'), '_blank'); return false;">
             ${thumbHtml}
             <div class="card-rank">#${rank}</div>
           </a>
           <div class="card-body">
-            <a href="${url}" target="_blank" style="text-decoration:none; color:inherit; display:block;">
+            <a href="#" onclick="window.open(artistPageUrl('${a.name.replace(/'/g,"\\'").replace(/"/g,"&quot;")}', '${cardSource}'), '_blank'); return false;" style="text-decoration:none; color:inherit; display:block;">
               <div class="card-name-row">
                 <div class="card-name">${a.name}</div>
                 <button class="copy-btn" onclick="handleCopy(this, event)" title="copy name">${copyIcon()}</button>
@@ -1608,7 +1611,8 @@
           const cell = document.getElementById('th-' + idx);
           if (cell) {
             const blur = safeOnly && !pc.safe ? 'filter:blur(10px);' : '';
-            cell.innerHTML = `<img src="${thumbUrl(a.name, cardSource)}" style="${blur}" loading="lazy"
+            const srcUrl = thumbUrl(a.name, cardSource);
+            cell.innerHTML = `<img src="${srcUrl}" referrerpolicy="no-referrer" style="${blur}" loading="lazy"
               onload="this.classList.add('loaded')" onerror="window.retryImage(this)">`;
           }
         }
@@ -1637,7 +1641,7 @@
               if (res.ok) {
                   const d = await res.json();
                   if (d.url) {
-                      pc = { safe: !!d.safe };
+                      pc = { safe: !!d.safe, url: d.url };
                       if (d.copyright) pc.copyright = d.copyright;
                   }
               }
@@ -1655,7 +1659,8 @@
           if (cell) {
             if (pc !== null) {
               const blur = safeOnly && !pc.safe ? 'filter:blur(10px);' : '';
-              cell.innerHTML = `<img src="${thumbUrl(name, cardSource)}" style="${blur}" loading="lazy"
+              const srcUrl = thumbUrl(name, cardSource);
+              cell.innerHTML = `<img src="${srcUrl}" referrerpolicy="no-referrer" style="${blur}" loading="lazy"
                 onload="this.classList.add('loaded')" onerror="window.retryImage(this)">`;
             } else {
               cell.innerHTML = window.PH;
