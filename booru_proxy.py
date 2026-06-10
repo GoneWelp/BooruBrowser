@@ -11,13 +11,13 @@ Keep the window open while using the browser tool. Stop with Ctrl+C.
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.request import urlopen, Request
-from urllib.parse import urlparse, parse_qs, urlencode
+from urllib.parse import urlparse, parse_qs, urlencode, quote
 import collections
 import json, os, sys, threading, time
 
 PORT = 8765
 
-# ── Credentials ──
+# ── Credentials ──────────────────────────────────────────────────────────────
 DB_LOGIN = ""
 DB_API_KEY = ""
 GB_USER_ID = ""
@@ -69,11 +69,15 @@ def _test_credentials():
 
 def fetch_api(url):
     req = Request(url)
-    req.add_header("User-Agent", get_user_agent())
-    with urlopen(req, timeout=15) as r:
+    if "gelbooru.com" in url:
+        req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        req.add_header("Referer", "https://gelbooru.com/")
+    else:
+        req.add_header("User-Agent", get_user_agent())
+    with urlopen(req, timeout=20) as r:
         return r.read(), dict(r.headers)
 
-# ── Caches ──
+# ── Caches ────────────────────────────────────────────────────────────────────
 _IMAGE_CACHE = collections.OrderedDict()
 _HOVER_CACHE = collections.OrderedDict()
 _META_CACHE  = {}
@@ -157,7 +161,33 @@ def _cache_get_lru(d, key):
             return val
         return None
 
-# ── Tag Logic ──
+# ── Tag Logic ─────────────────────────────────────────────────────────────────
+
+E621_BLACKLIST = {
+    "diaper", "diaper_fetish", "fisting", "pooping", "scatplay",
+    "scat", "feces", "urine", "watersports", "coprophagia", "gore"
+}
+
+def _is_post_allowed(post, source):
+    """Строго фильтрует посты e621: вырезает черный список и заставляет быть solo."""
+    if source != "e621":
+        return True
+
+    tags = set()
+    for cat in post.get("tags", {}).values():
+        if isinstance(cat, list): tags.update(cat)
+
+    # 1. Проверка черного списка
+    if tags.intersection(E621_BLACKLIST):
+        return False
+
+    # 2. Проверка на одиночного персонажа (strict solo)
+    solo_tags = {"solo", "1girl", "1boy"}
+    if not tags.intersection(solo_tags):
+        return False
+
+    return True
+
 def _is_safe(post, source):
     if source == "danbooru": return str(post.get("rating", "")).lower() in ("g", "s")
     if source == "gelbooru": return str(post.get("rating", "")).lower() in ("general", "safe", "g", "s")
@@ -181,15 +211,21 @@ def _has_solo_tags(post, source):
 def _find_best_post(posts, url_func, source):
     valid_posts = []
     for p in posts:
+        # Применяем строгий фильтр
+        if not _is_post_allowed(p, source):
+            continue
         urls = url_func(p)
         if urls: valid_posts.append((p, urls))
+
     if not valid_posts: return None, []
+
     for p, urls in valid_posts:
         if _has_solo_tags(p, source): return p, urls
+
     return valid_posts[0]
 
-# ── Danbooru ──
-def _db_fetch_posts(artist, limit=20):
+# ── Danbooru ──────────────────────────────────────────────────────────────────
+def _db_fetch_posts(artist, limit=100):
     try:
         p = {"tags": artist, "limit": str(limit), "only": "id,preview_file_url,large_file_url,file_url,rating,media_asset,tag_string_copyright,tag_string"}
         p.update(_db_auth_params())
@@ -206,18 +242,18 @@ def _db_post_urls(post):
         if (u := post.get(key)) and u not in urls: urls.append(u)
     return urls
 
-# ── Gelbooru ──
+# ── Gelbooru ──────────────────────────────────────────────────────────────────
 _GB_LOCK = threading.Lock()
 _last_gb_req = 0.0
 
-def _wait_gb_rate_limit():
+def _wait_gb_rate_limit(delay=0.5):
     global _last_gb_req
     with _GB_LOCK:
         now = time.time()
-        if now - _last_gb_req < 0.2: time.sleep(0.2 - (now - _last_gb_req))
+        if now - _last_gb_req < delay: time.sleep(delay - (now - _last_gb_req))
         _last_gb_req = time.time()
 
-def _gb_fetch_posts(artist, limit=20):
+def _gb_fetch_posts(artist, limit=100):
     try:
         _wait_gb_rate_limit()
         p = {"tags": artist, "limit": limit, "pid": 0}
@@ -235,7 +271,7 @@ def _gb_post_urls(post):
         if (u := post.get(key)) and u not in urls: urls.append(u)
     return urls
 
-# ── e621 ──
+# ── e621 ──────────────────────────────────────────────────────────────────────
 _E621_LOCK = threading.Lock()
 _last_e621_req = 0.0
 
@@ -243,10 +279,10 @@ def _wait_e621_rate_limit():
     global _last_e621_req
     with _E621_LOCK:
         now = time.time()
-        if now - _last_e621_req < 0.55: time.sleep(0.55 - (now - _last_e621_req))
+        if now - _last_e621_req < 1.1: time.sleep(1.1 - (now - _last_e621_req))
         _last_e621_req = time.time()
 
-def _e621_fetch_posts(artist, limit=20):
+def _e621_fetch_posts(artist, limit=100):
     try:
         _wait_e621_rate_limit()
         p = {"tags": artist, "limit": str(limit)}
@@ -269,12 +305,18 @@ def _get_api_funcs(source):
     if source == "e621":     return _e621_fetch_posts, _e621_post_urls
     return _db_fetch_posts, _db_post_urls
 
-# ── Image fetching ──
+# ── Image fetching ────────────────────────────────────────────────────────────
 def try_urls(candidates, source=None):
     for u in candidates:
         try:
             req = Request(u)
-            req.add_header("User-Agent", get_user_agent())
+            if "gelbooru.com" in u:
+                _wait_gb_rate_limit(0.4) # Increased delay to prevent Cloudflare 429
+                req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                req.add_header("Referer", "https://gelbooru.com/")
+            else:
+                req.add_header("User-Agent", get_user_agent())
+                
             with urlopen(req, timeout=15) as r:
                 data = r.read()
                 print(f"[img] ok {len(data)//1024}KB -- {u[:80]}")
@@ -282,7 +324,7 @@ def try_urls(candidates, source=None):
         except Exception as e: print(f"[img] err {type(e).__name__}: {e} -- {u[:80]}")
     return None, {}
 
-# ── Request handler ──
+# ── Request handler ───────────────────────────────────────────────────────────
 class ProxyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -291,6 +333,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         if path == "/ping": self._respond(200, b"ok", "text/plain"); return
         if path == "/cache-save": self._handle_cache_save(params); return
+        if path == "/proxy-image": self._proxy_image(params); return
 
         if path == "/" or path == "/index.html":
             html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "booru_browser.html")
@@ -369,7 +412,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         key = f"{source}:{artist}"
         with _cache_lock: cached = _META_CACHE.get(key)
-        if cached: self._json(cached); return
+        if cached and "url" in cached: self._json(cached); return
 
         fetch_func, url_func = _get_api_funcs(source)
         posts = fetch_func(artist, 20)
@@ -429,13 +472,25 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         valid_posts = []
         for p in posts:
+            # Применяем строгий фильтр для превью (4 картинки)
+            if not _is_post_allowed(p, source):
+                continue
             if urls := url_func(p): valid_posts.append((p, urls))
 
         valid_posts.sort(key=lambda x: not _has_solo_tags(x[0], source))
-        result = [urls[0] for _, urls in valid_posts[:4]]
+        result = [f"/proxy-image?url={quote(urls[0])}" for _, urls in valid_posts[:4]]
 
         _cache_set_lru(_HOVER_CACHE, key, result)
         self._json(result)
+
+    def _proxy_image(self, params):
+        url = params.get("url", [None])[0]
+        if not url: self._respond(400, b"missing url", "text/plain"); return
+        data, hdrs = try_urls([url])
+        if data:
+            self._respond(200, data, "image/jpeg")
+        else:
+            self._respond(404, b"image not found", "text/plain")
 
     def _tags(self, params):
         letter, source, page, tag_type = params.get("letter", [None])[0], params.get("source", ["danbooru"])[0], params.get("page", ["1"])[0], params.get("type", ["artist"])[0]
@@ -497,7 +552,12 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.send_response(code); self._cors()
         self.send_header("Content-Type", ct)
         self.send_header("Content-Length", str(len(body)))
-        if ct == "application/json": self.send_header("Cache-Control", "public, max-age=3600")
+        if ct == "application/json" or ct.startswith("text/html"):
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+        else:
+            self.send_header("Cache-Control", "public, max-age=3600")
         self.end_headers(); self.wfile.write(body)
 
     def do_OPTIONS(self): self.send_response(204); self._cors(); self.end_headers()
