@@ -425,7 +425,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
         if source == "danbooru": copyrights = best_post.get("tag_string_copyright", "").strip().replace(" ", ", ")
         elif source == "e621": copyrights = ", ".join(best_post.get("tags", {}).get("copyright", []))
 
-        meta = {"safe": is_safe, "url": urls[0], "copyright": copyrights}
+        meta = {"safe": is_safe, "url": urls[0], "urls": urls, "copyright": copyrights}
         with _cache_lock:
             _META_CACHE[key] = meta
             global _META_DIRTY
@@ -444,7 +444,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         with _cache_lock: meta = _META_CACHE.get(img_key)
         if meta and "url" in meta:
-            candidates, is_safe = [meta["url"]], meta.get("safe", False)
+            candidates, is_safe = meta.get("urls", [meta["url"]]), meta.get("safe", False)
         else:
             fetch_func, url_func = _get_api_funcs(source)
             posts = fetch_func(artist, 20)
@@ -453,6 +453,21 @@ class ProxyHandler(BaseHTTPRequestHandler):
             is_safe = _is_safe(best_post, source)
 
         img, hdrs = try_urls(candidates, source)
+
+        # If it failed to load from cached URLs, the Gelbooru URL might have moved (e.g. gelbooru.com -> img4.gelbooru.com)
+        if not img and meta:
+            print(f"[img] Cached URLs failed for {artist}, refetching API...")
+            with _cache_lock:
+                _META_CACHE.pop(img_key, None)
+                global _META_DIRTY
+                _META_DIRTY = True
+            
+            fetch_func, url_func = _get_api_funcs(source)
+            posts = fetch_func(artist, 20)
+            best_post, candidates = _find_best_post(posts, url_func, source)
+            if best_post:
+                is_safe = _is_safe(best_post, source)
+                img, hdrs = try_urls(candidates, source)
         if img is None: self._respond(502, b'{"error":"fetch failed"}', "application/json"); return
 
         ct = hdrs.get("Content-Type", "image/jpeg")
