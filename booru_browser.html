@@ -616,13 +616,15 @@
 
     // ── Backup System ──
     function exportBackup() {
-        const s = getActiveState();
-        const data = { folders: s.folders, favorites: Array.from(s.favorites.values()) };
+        const data = {
+            version: 2,
+            artists: { folders: appState.artists.folders, favorites: Array.from(appState.artists.favorites.values()) },
+            characters: { folders: appState.characters.folders, favorites: Array.from(appState.characters.favorites.values()) }
+        };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        const prefix = currentMode === 'artists' ? 'booru_backup' : 'booru_chars_backup';
-        a.download = `${prefix}_${new Date().toISOString().slice(0,10)}.json`;
+        a.download = `booru_full_backup_${new Date().toISOString().slice(0,10)}.json`;
         a.click();
     }
 
@@ -633,23 +635,57 @@
         reader.onload = async (e) => {
             try {
                 const data = JSON.parse(e.target.result);
-                if (data.folders && data.favorites) {
-                    const itemName = currentMode === 'artists' ? 'artists' : 'characters';
-                    if (!confirm(`This will merge the imported ${itemName} and folders with your current ones. Continue?`)) return;
-
-                    const s = getActiveState();
-                    data.folders.forEach(f => {
-                        if (!s.folders.includes(f)) s.folders.push(f);
+                
+                if (data.version === 2 && data.artists && data.characters) {
+                    if (!confirm(`This will merge both imported artists and characters with your current ones. Continue?`)) return;
+                    
+                    data.artists.folders.forEach(f => { if (!appState.artists.folders.includes(f)) appState.artists.folders.push(f); });
+                    data.artists.favorites.forEach(f => {
+                        if (!f.folder) f.folder = 'Default';
+                        appState.artists.favorites.set(f.source + ':' + f.name, f);
                     });
+                    
+                    data.characters.folders.forEach(f => { if (!appState.characters.folders.includes(f)) appState.characters.folders.push(f); });
+                    data.characters.favorites.forEach(f => {
+                        if (!f.folder) f.folder = 'Default';
+                        appState.characters.favorites.set(f.source + ':' + f.name, f);
+                    });
+                    
+                    await localforage.setItem('booru-folders', appState.artists.folders);
+                    await localforage.setItem('booru-favs-v2', Array.from(appState.artists.favorites.values()));
+                    await localforage.setItem('booru-chars-folders', appState.characters.folders);
+                    await localforage.setItem('booru-chars-favs-v2', Array.from(appState.characters.favorites.values()));
+                    
+                    renderFolderSelect();
+                    updateFolderBtns();
+                    
+                    alert("Full backup imported successfully!");
+                    if (showFavs || showMix) applySortFilter();
+                } else if (data.folders && data.favorites) {
+                    // Legacy V1 backup
+                    const isChars = file.name.includes('chars');
+                    const targetName = isChars ? 'characters' : 'artists';
+                    const s = appState[targetName];
+                    
+                    if (!confirm(`This looks like an old backup of ${targetName}. It will be merged into your ${targetName}. Continue?`)) return;
 
+                    data.folders.forEach(f => { if (!s.folders.includes(f)) s.folders.push(f); });
                     data.favorites.forEach(f => {
                         if (!f.folder) f.folder = 'Default';
                         s.favorites.set(f.source + ':' + f.name, f);
                     });
 
-                    await saveFolders();
-                    await saveFavs();
-                    alert("Backup imported successfully!");
+                    const folderKey = isChars ? 'booru-chars-folders' : 'booru-folders';
+                    const favsKey = isChars ? 'booru-chars-favs-v2' : 'booru-favs-v2';
+                    await localforage.setItem(folderKey, s.folders);
+                    await localforage.setItem(favsKey, Array.from(s.favorites.values()));
+                    
+                    if (currentMode === targetName) {
+                        renderFolderSelect();
+                        updateFolderBtns();
+                    }
+                    
+                    alert(`Legacy ${targetName} backup imported successfully!`);
                     if (showFavs || showMix) applySortFilter();
                 } else {
                     alert("Invalid backup file format.");
